@@ -19,4 +19,4 @@ Algorithms which TD3 compares against (PPO, TRPO, ACKTR, DDPG) can be found at [
 ### Results
 Learning curves found in the paper are found under /learning_curves. Each learning curve are formatted as NumPy arrays of 201 evaluations (201,), where each evaluation corresponds to the average total reward from running the policy for 10 episodes with no exploration. The first evaluation is the randomly initialized policy network (unused in the paper). 
 
-Numerical results can be found in the paper, or from the learning curves. Video of the learned agent can be found [here](). 
+Numerical results can be found in the paper, or from the learning curves. Video of the learned agent can be found [here](https://youtu.be/x33Vw-6vzso). 
