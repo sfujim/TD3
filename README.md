@@ -6,8 +6,11 @@ Method is tested on [MuJoCo](http://www.mujoco.org/) continuous control tasks in
 Networks are trained using [PyTorch](https://github.com/pytorch/pytorch). 
 
 ### Usage
-The paper results can be reproduced exactly running the experiments.sh script. 
-Experiments on single environments can be run by calling
+The paper results can be reproduced exactly by running:
+```
+./experiments.sh
+```
+Experiments on single environments can be run by calling:
 ```
 python2 main.py --env HalfCheetah-v1
 ```
