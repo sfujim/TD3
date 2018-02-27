@@ -1,6 +1,6 @@
 # Addressing Function Approximation Error in Actor-Critic Methods
 
-PyTorch implementation of Twin Delayed Deep Deterministic Policy Gradients (TD3). If you use our code or data please cite the [paper]().
+PyTorch implementation of Twin Delayed Deep Deterministic Policy Gradients (TD3). If you use our code or data please cite the [paper](https://arxiv.org/abs/1802.09477).
 
 Method is tested on [MuJoCo](http://www.mujoco.org/) continuous control tasks in [OpenAI gym](https://github.com/openai/gym). 
 Networks are trained using [PyTorch](https://github.com/pytorch/pytorch). 
