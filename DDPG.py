@@ -98,7 +98,7 @@ class DDPG(object):
 			target_Q = reward + (done * discount * target_Q)
 
 			# Get current Q estimate
-			current_Q = self.critic([state, action])
+			current_Q = self.critic(state, action)
 
 			# Compute critic loss
 			critic_loss = self.criterion(current_Q, target_Q)
