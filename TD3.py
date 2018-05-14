@@ -82,6 +82,7 @@ class TD3(object):
 
 		self.criterion = nn.MSELoss()
 		self.state_dim = state_dim
+		self.action_dim = action_dim
 		self.max_action = max_action
 
 
@@ -103,7 +104,7 @@ class TD3(object):
 			reward = var(torch.FloatTensor(r))
 
 			# Select action according to policy and add clipped noise 
-			noise = np.clip(np.random.normal(0, policy_noise, size=(batch_size,1)), -noise_clip, noise_clip)
+			noise = np.clip(np.random.normal(0, policy_noise, size=(batch_size, self.action_dim)), -noise_clip, noise_clip)
 			next_action = self.actor_target(next_state) + var(torch.FloatTensor(noise))
 			next_action = next_action.clamp(-self.max_action, self.max_action)
 
