@@ -65,7 +65,7 @@ class Critic(nn.Module):
 class TD3(object):
 	def __init__(self, state_dim, action_dim, max_action):
 		self.actor = Actor(state_dim, action_dim, max_action)
-		self.actor_target = Actor(state_dim, action_dim, max_action).cuda()
+		self.actor_target = Actor(state_dim, action_dim, max_action)
 		self.actor_target.load_state_dict(self.actor.state_dict())
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters())
 
