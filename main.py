@@ -5,8 +5,9 @@ import argparse
 import os
 
 import utils
-import DDPG
 import TD3
+import OurDDPG
+import DDPG
 
 
 # Runs policy for X episodes and returns average reward
@@ -16,7 +17,7 @@ def evaluate_policy(policy, eval_episodes=10):
 		obs = env.reset()
 		done = False
 		while not done:
-			action = policy.select_action(np.array(obs)).clip(env.action_space.low, env.action_space.high)
+			action = policy.select_action(np.array(obs))
 			obs, reward, done, _ = env.step(action)
 			avg_reward += reward
 
@@ -69,8 +70,9 @@ if __name__ == "__main__":
 	max_action = int(env.action_space.high[0])
 
 	# Initialize policy
-	if args.policy_name == "DDPG": policy = DDPG.DDPG(state_dim, action_dim, max_action)
-	elif args.policy_name == "TD3": policy = TD3.TD3(state_dim, action_dim, max_action)
+	if args.policy_name == "TD3": policy = TD3.TD3(state_dim, action_dim, max_action)
+	elif args.policy_name == "OurDDPG": policy = OurDDPG.DDPG(state_dim, action_dim, max_action)
+	elif args.policy_name == "DDPG": policy = DDPG.DDPG(state_dim, action_dim, max_action)
 
 	replay_buffer = utils.ReplayBuffer()
 	
@@ -98,7 +100,7 @@ if __name__ == "__main__":
 				timesteps_since_eval %= args.eval_freq
 				evaluations.append(evaluate_policy(policy))
 				
-				if args.save_models: policy.save("%s" % (file_name), directory="./pytorch_models")
+				if args.save_models: policy.save(file_name, directory="./pytorch_models")
 				np.save("./results/%s" % (file_name), evaluations) 
 			
 			# Reset environment

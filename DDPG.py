@@ -94,8 +94,8 @@ class DDPG(object):
 
 			# Q target = reward + discount * Q(next_state, pi(next_state))
 			target_Q = self.critic_target(next_state, self.actor_target(next_state))
-			target_Q.volatile = False 
 			target_Q = reward + (done * discount * target_Q)
+			target_Q.volatile = False
 
 			# Get current Q estimate
 			current_Q = self.critic(state, action)
@@ -120,7 +120,7 @@ class DDPG(object):
 			for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
 				target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 
-			for param, target_param,  in zip(self.actor.parameters(), self.actor_target.parameters()):
+			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
 				target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 
 

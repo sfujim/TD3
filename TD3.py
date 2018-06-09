@@ -108,11 +108,11 @@ class TD3(object):
 			next_action = self.actor_target(next_state) + var(torch.FloatTensor(noise))
 			next_action = next_action.clamp(-self.max_action, self.max_action)
 
-			# Q target = reward + discount * min(Qi(next_state, pi(next_state)))
+			# Q target = reward + discount * min_i(Qi(next_state, pi(next_state)))
 			target_Q1, target_Q2 = self.critic_target(next_state, next_action)
-			target_Q = torch.min(torch.cat([target_Q1, target_Q2], 1), 1)[0].view(-1, 1)
-			target_Q.volatile = False 
+			target_Q = torch.min(target_Q1, target_Q2)
 			target_Q = reward + (done * discount * target_Q)
+			target_Q.volatile = False 
 
 			# Get current Q estimates
 			current_Q1, current_Q2 = self.critic(state, action)
