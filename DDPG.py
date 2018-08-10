@@ -3,20 +3,13 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
-
 import utils
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Implementation of Deep Deterministic Policy Gradients (DDPG)
 # Paper: https://arxiv.org/abs/1509.02971
 # [Not the implementation used in the TD3 paper]
-
-
-def var(tensor, volatile=False):
-	if torch.cuda.is_available():
-		return Variable(tensor, volatile=volatile).cuda()
-	else:
-		return Variable(tensor, volatile=volatile)
 
 
 class Actor(nn.Module):
@@ -33,7 +26,7 @@ class Actor(nn.Module):
 	def forward(self, x):
 		x = F.relu(self.l1(x))
 		x = F.relu(self.l2(x))
-		x = self.max_action * F.tanh(self.l3(x)) 
+		x = self.max_action * torch.tanh(self.l3(x)) 
 		return x 
 
 
@@ -55,28 +48,19 @@ class Critic(nn.Module):
 
 class DDPG(object):
 	def __init__(self, state_dim, action_dim, max_action):
-		self.actor = Actor(state_dim, action_dim, max_action)
-		self.actor_target = Actor(state_dim, action_dim, max_action)
+		self.actor = Actor(state_dim, action_dim, max_action).to(device)
+		self.actor_target = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target.load_state_dict(self.actor.state_dict())
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
 
-		self.critic = Critic(state_dim, action_dim)
-		self.critic_target = Critic(state_dim, action_dim)
+		self.critic = Critic(state_dim, action_dim).to(device)
+		self.critic_target = Critic(state_dim, action_dim).to(device)
 		self.critic_target.load_state_dict(self.critic.state_dict())
 		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), weight_decay=1e-2)		
 
-		if torch.cuda.is_available():
-			self.actor = self.actor.cuda()
-			self.actor_target = self.actor_target.cuda()
-			self.critic = self.critic.cuda()
-			self.critic_target = self.critic_target.cuda()
-
-		self.criterion = nn.MSELoss()
-		self.state_dim = state_dim
-
 
 	def select_action(self, state):
-		state = var(torch.FloatTensor(state.reshape(-1, self.state_dim)), volatile=True)
+		state = torch.FloatTensor(state.reshape(1, -1)).to(device)
 		return self.actor(state).cpu().data.numpy().flatten()
 
 
@@ -86,22 +70,21 @@ class DDPG(object):
 
 			# Sample replay buffer 
 			x, y, u, r, d = replay_buffer.sample(batch_size)
-			state = var(torch.FloatTensor(x))
-			action = var(torch.FloatTensor(u))
-			next_state = var(torch.FloatTensor(y), volatile=True)
-			done = var(torch.FloatTensor(1 - d))
-			reward = var(torch.FloatTensor(r))
+			state = torch.FloatTensor(x).to(device)
+			action = torch.FloatTensor(u).to(device)
+			next_state = torch.FloatTensor(y).to(device)
+			done = torch.FloatTensor(1 - d).to(device)
+			reward = torch.FloatTensor(r).to(device)
 
-			# Q target = reward + discount * Q(next_state, pi(next_state))
+			# Compute the target Q value
 			target_Q = self.critic_target(next_state, self.actor_target(next_state))
-			target_Q = reward + (done * discount * target_Q)
-			target_Q.volatile = False
+			target_Q = reward + (done * discount * target_Q).detach()
 
 			# Get current Q estimate
 			current_Q = self.critic(state, action)
 
 			# Compute critic loss
-			critic_loss = self.criterion(current_Q, target_Q)
+			critic_loss = F.mse_loss(current_Q, target_Q)
 
 			# Optimize the critic
 			self.critic_optimizer.zero_grad()
