@@ -15,7 +15,7 @@ Experiments on single environments can be run by calling:
 python2 main.py --env HalfCheetah-v1
 ```
 
-Hyper-parameters can be modified with different arguments to main.py. We include an implementation of DDPG to compare differences with TD3, this is not the implementation of DDPG used in the paper. 
+Hyper-parameters can be modified with different arguments to main.py. We include an implementation of DDPG (DDPG.py) for easy comparison of hyper-parameters with TD3, this is not the implementation of "Our DDPG" as used in the paper (see OurDDPG.py). 
 
 Algorithms which TD3 compares against (PPO, TRPO, ACKTR, DDPG) can be found at [OpenAI baselines repository](https://github.com/openai/baselines). 
 
