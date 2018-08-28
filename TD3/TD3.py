@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
-import utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -19,7 +18,7 @@ class Actor(nn.Module):
 		self.l2 = nn.Linear(400, 300)
 		self.l3 = nn.Linear(300, action_dim)
 		
-		self.max_action = max_action
+		self.max_action = torch.Tensor(max_action)
 
 
 	def forward(self, x):
