@@ -67,7 +67,7 @@ if __name__ == "__main__":
 	
 	state_dim = env.observation_space.shape[0]
 	action_dim = env.action_space.shape[0] 
-	max_action = int(env.action_space.high[0])
+	max_action = float(env.action_space.high[0])
 
 	# Initialize policy
 	if args.policy_name == "TD3": policy = TD3.TD3(state_dim, action_dim, max_action)
