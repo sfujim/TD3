@@ -3,16 +3,21 @@ import numpy as np
 # Code based on: 
 # https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py
 
-# Simple replay buffer
+# Expects tuples of (state, next_state, action, reward, done)
 class ReplayBuffer(object):
-	def __init__(self):
+	def __init__(self, max_size=1e6):
 		self.storage = []
+		self.max_size = max_size
+		self.ptr = 0
 
-	# Expects tuples of (state, next_state, action, reward, done)
 	def add(self, data):
-		self.storage.append(data)
+		if len(self.storage) == self.max_size:
+			self.storage[int(self.ptr)] = data
+			self.ptr = (self.ptr + 1) % self.max_size
+		else:
+			self.storage.append(data)
 
-	def sample(self, batch_size=100):
+	def sample(self, batch_size):
 		ind = np.random.randint(0, len(self.storage), size=batch_size)
 		x, y, u, r, d = [], [], [], [], []
 
