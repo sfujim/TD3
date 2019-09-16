@@ -28,8 +28,6 @@ Numerical results can be found in the paper, or from the learning curves. Video 
 
 ### Bibtex
 
-### Bibtex
-
 ```
 @inproceedings{fujimoto2018addressing,
   title={Addressing Function Approximation Error in Actor-Critic Methods},
