@@ -28,7 +28,9 @@ Numerical results can be found in the paper, or from the learning curves. Video 
 
 ### Bibtex
 
-'''
+### Bibtex
+
+```
 @inproceedings{fujimoto2018addressing,
   title={Addressing Function Approximation Error in Actor-Critic Methods},
   author={Fujimoto, Scott and Hoof, Herke and Meger, David},
@@ -36,4 +38,4 @@ Numerical results can be found in the paper, or from the learning curves. Video 
   pages={1582--1591},
   year={2018}
 }
-'''
+```
