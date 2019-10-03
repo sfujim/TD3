@@ -42,12 +42,12 @@ if __name__ == "__main__":
     parser.add_argument("--policy_name", default="TD3")  # Policy name
     parser.add_argument("--env_name", default="HalfCheetah-v2")  # OpenAI gym environment name
     parser.add_argument("--seed", default=2, type=int)  # Sets Gym, PyTorch and Numpy seeds
-    parser.add_argument("--start_timesteps", default=1e4,
+    parser.add_argument("--start_timesteps", default=1e3,
                         type=int)  # How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=5e3, type=float)  # How often (time steps) we evaluate
     parser.add_argument("--fwd_model_update_freq", default=1e3, type=float)  # How often (time steps) we update the forward model
     parser.add_argument("--bwd_model_update_freq", default=1e3, type=float)  # How often (time steps) we update the backward model
-    parser.add_argument("--imagination_depth", default=1, type=int)  # How often (time steps) we update the forward model
+    parser.add_argument("--imagination_depth", default=1, type=int)  # How deep to propagate the fwd model
     parser.add_argument("--max_timesteps", default=1e6, type=int)  # Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")  # Whether or not models are saved
     parser.add_argument("--load_model", default="None")  # Load a pretrained model
@@ -58,6 +58,8 @@ if __name__ == "__main__":
     parser.add_argument("--policy_noise", default=0.2, type=float)  # Noise added to target policy during critic update
     parser.add_argument("--noise_clip", default=0.5, type=float)  # Range to clip target policy noise
     parser.add_argument("--policy_freq", default=2, type=int)  # Frequency of delayed policy updates
+    parser.add_argument("--model_based", action="store_true")  # Frequency of delayed policy updates
+
     args = parser.parse_args()
 
     file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
@@ -82,16 +84,16 @@ if __name__ == "__main__":
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
 
+    if args.model_based:
+        forward_dynamics_model = Net(n_feature=state_dim+action_dim,
+                                     n_hidden=500,
+                                     n_output=state_dim+1 # reward is the + 1
+                                     ).cuda()
 
-    forward_dynamics_model = Net(n_feature=state_dim+action_dim,
-                                 n_hidden=500,
-                                 n_output=state_dim+1 # reward is the + 1
-                                 ).cuda()
-
-    backward_dynamics_model = Net(n_feature=state_dim + action_dim,
-                                 n_hidden=500,
-                                 n_output=state_dim+1 # reward is the + 1
-                                 ).cuda()
+        backward_dynamics_model = Net(n_feature=state_dim + action_dim,
+                                     n_hidden=500,
+                                     n_output=state_dim+1 # reward is the + 1
+                                     ).cuda()
 
     kwargs = {
         "state_dim": state_dim,
@@ -121,8 +123,9 @@ if __name__ == "__main__":
 
     replay_buffer = utils.ReplayBuffer(state_dim, action_dim)
     # introduce 2 new replay buffers to store synthetic transitions
-    fwd_model_replay_buffer = utils.ReplayBuffer(state_dim, action_dim, max_size=int(1e7))
-    bwd_model_replay_buffer = utils.ReplayBuffer(state_dim, action_dim, max_size=int(1e7))
+    if args.model_based:
+        fwd_model_replay_buffer = utils.ReplayBuffer(state_dim, action_dim, max_size=int(1e7))
+        bwd_model_replay_buffer = utils.ReplayBuffer(state_dim, action_dim, max_size=int(1e7))
 
 
     # Evaluate untrained policy
@@ -133,10 +136,13 @@ if __name__ == "__main__":
     episode_timesteps = 0
     episode_num = 0
 
-    Ts = [] # list of trajectories
-    T = [[]] # buffer for storing a single trajectory
-
-    first_update = False
+    if args.model_based:
+        print('USING MODEL FOR ACCELERATION')
+        Ts = [] # list of trajectories
+        T = [[]] # buffer for storing a single trajectory
+        first_update = False
+    else:
+        print('~~ MODEL FREE METHOD ~~')
 
     for t in range(int(args.max_timesteps)):
 
@@ -155,7 +161,8 @@ if __name__ == "__main__":
         next_state, reward, done, _ = env.step(action)
 
         # T[0] because currently using only 1 thread for environment
-        T[0].append((state, action, reward))  # append the state, action and reward into trajectory
+        if args.model_based:
+            T[0].append((state, action, reward))  # append the state, action and reward into trajectory
 
         done_bool = float(done) if episode_timesteps < env._max_episode_steps else 0
 
@@ -163,49 +170,51 @@ if __name__ == "__main__":
         replay_buffer.add(state, action, next_state, reward, done_bool)
 
         # update the forward and backward models here
-        if (not first_update and t >= 1000) or (t >= args.fwd_model_update_freq and t % args.fwd_model_update_freq == 0):
-            fwd_norm = update_forward_model(forward_dynamics_model, Ts)
-            first_update = True # done
+        if args.model_based:
+            if (not first_update and t >= 1000) or (t >= args.fwd_model_update_freq and t % args.fwd_model_update_freq == 0):
+                fwd_norm = update_forward_model(forward_dynamics_model, Ts)
+                first_update = True # done
 
         # if t >= args.bwd_model_update_freq and t % args.bwd_model_update_freq == 0:
         #     bwd_norm = update_backward_model(backward_dynamics_model, Ts)
 
-        # add imagined trajectories from fwd model into fwd_model_replay_buffer
-        if first_update: # model has been updated atleast once
-            forward_dynamics_model.eval()
+        if args.model_based:
+            # add imagined trajectories from fwd model into fwd_model_replay_buffer
+            if first_update: # model has been updated atleast once
+                forward_dynamics_model.eval()
 
-            for _ in range(100): # collect 100 times the data
-                t_s, t_a, t_ns, t_r, t_nd = replay_buffer.sample(args.batch_size)
-                t_s = t_s.cpu().numpy()
-                t_a = t_a.cpu().numpy()
+                for _ in range(100): # collect 100 times the data
+                    t_s, t_a, t_ns, t_r, t_nd = replay_buffer.sample(args.batch_size)
+                    t_s = t_s.cpu().numpy()
+                    t_a = t_a.cpu().numpy()
 
-                for model_depth in range(args.imagination_depth):
-                    # add noise to actions and predict
-                    t_a =  (t_a + np.random.normal(0, max_action*args.expl_noise,
-                                                   (t_a.shape[0], t_a.shape[1]))).clip(-max_action, max_action)
+                    for model_depth in range(args.imagination_depth):
+                        # add noise to actions and predict
+                        t_a =  (t_a + np.random.normal(0, max_action*args.expl_noise/10,
+                                                       (t_a.shape[0], t_a.shape[1]))).clip(-max_action, max_action)
 
-                    fwd_input = np.hstack((t_s, t_a))
-                    fwd_input = apply_norm(fwd_input, fwd_norm[0]) # normalize the data before feeding in
+                        fwd_input = np.hstack((t_s, t_a))
+                        fwd_input = apply_norm(fwd_input, fwd_norm[0]) # normalize the data before feeding in
 
-                    fwd_input = torch.tensor(fwd_input).float().cuda()
-                    fwd_output = forward_dynamics_model.forward(fwd_input)
-                    fwd_output = fwd_output.detach().cpu().numpy()
+                        fwd_input = torch.tensor(fwd_input).float().cuda()
+                        fwd_output = forward_dynamics_model.forward(fwd_input)
+                        fwd_output = fwd_output.detach().cpu().numpy()
 
-                    fwd_output = unapply_norm(fwd_output, fwd_norm[1]) # unnormalize the output data
+                        fwd_output = unapply_norm(fwd_output, fwd_norm[1]) # unnormalize the output data
 
-                    t_ns = fwd_output[:, :-1] + t_s # predicted next state = predicted delta next state + current state
-                    t_r = fwd_output[:, -1] # predicted reward
+                        t_ns = fwd_output[:, :-1] + t_s # predicted next state = predicted delta next state + current state
+                        t_r = fwd_output[:, -1] # predicted reward
 
-                    for k in range(t_s.shape[0]):
-                        fwd_model_replay_buffer.add(t_s[k], t_a[k], t_ns[k], t_r[k], False) # store predicted transition in buffer
+                        for k in range(t_s.shape[0]):
+                            fwd_model_replay_buffer.add(t_s[k], t_a[k], t_ns[k], t_r[k], False) # store predicted transition in buffer
 
-                    if args.imagination_depth > 1:
-                        # get ready for next transition
-                        t_s = t_ns
-                        print('Aquiring samples of next actions and states to query ~forward model~')
-                        for k in trange(t_s.shape[0]):
-                            t_a[k] = (policy.select_action(np.array(t_s[k]))
-                                   + np.random.normal(0, max_action * args.expl_noise, size=action_dim)).clip(-max_action, max_action)
+                        if args.imagination_depth > 1:
+                            # get ready for next transition
+                            t_s = t_ns
+                            print('Aquiring samples of next actions and states to query ~forward model~')
+                            for k in trange(t_s.shape[0]):
+                                t_a[k] = (policy.select_action(np.array(t_s[k]))
+                                       + np.random.normal(0, max_action * args.expl_noise, size=action_dim)).clip(-max_action, max_action)
 
         state = next_state
         episode_reward += reward
@@ -216,8 +225,9 @@ if __name__ == "__main__":
             policy.train(replay_buffer, args.batch_size)
 
         # Imagined data
-        if t >= args.batch_size and t >= args.fwd_model_update_freq:
-            policy.train(fwd_model_replay_buffer, args.batch_size*100)
+        if args.model_based:
+            if t >= args.batch_size and t >= args.fwd_model_update_freq:
+                policy.train(fwd_model_replay_buffer, args.batch_size*100)
 
         if done:
             # +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
@@ -232,8 +242,9 @@ if __name__ == "__main__":
             episode_reward = 0
             episode_timesteps = 0
             episode_num += 1
-            Ts.extend(T)
-            T = [[]]  #
+            if args.model_based:
+                Ts.extend(T)
+                T = [[]]  #
 
         # Evaluate episode
         if (t + 1) % args.eval_freq == 0:

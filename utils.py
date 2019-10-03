@@ -57,7 +57,7 @@ def train_model_es(model,
                    y_list,
                    optimizer,
                    criterion=torch.nn.MSELoss(),
-                   max_epochs=1000,
+                   max_epochs=100,
                    v_size=0.2,
                    patience=10,
 				   num_cores=10):
@@ -200,7 +200,7 @@ def update_forward_model(model, Ts):
 				   optimizer,
 				   criterion)
 
-	print('            --- TRAINING DONE ---           ')
+	print('            --- FORWARD MODEL TRAINING DONE ---           ')
 
 	return X_norm, Y_norm
 
