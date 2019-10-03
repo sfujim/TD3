@@ -67,17 +67,17 @@ class Critic(nn.Module):
 
 class TD3(object):
 	def __init__(
-		self, 
-		state_dim, 
-		action_dim, 
+		self,
+		state_dim,
+		action_dim,
 		max_action,
-		discount=0.99, 
-		tau=0.005, 
-		policy_noise=0.2, 
-		noise_clip=0.5, 
+		discount=0.99,
+		tau=0.005,
+		policy_noise=0.2,
+		noise_clip=0.5,
 		policy_freq=2
 	):
-	
+
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
@@ -108,7 +108,7 @@ class TD3(object):
 		state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
 
 		with torch.no_grad():
-			# Select action according to policy and add clipped noise 
+			# Select action according to policy and add clipped noise
 			noise = (
 				torch.randn_like(action) * self.policy_noise
 			).clamp(-self.noise_clip, self.noise_clip)
@@ -126,7 +126,7 @@ class TD3(object):
 		current_Q1, current_Q2 = self.critic(state, action)
 
 		# Compute critic loss
-		critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q) 
+		critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
 
 		# Optimize the critic
 		self.critic_optimizer.zero_grad()
@@ -150,3 +150,17 @@ class TD3(object):
 
 			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
 				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+
+	def save(self, filename):
+		torch.save(self.critic.state_dict(), filename + "_critic")
+		torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
+		torch.save(self.actor.state_dict(), filename + "_actor")
+		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
+
+
+	def load(self, filename):
+		self.critic.load_state_dict(torch.load(filename + "_critic"))
+		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
+		self.actor.load_state_dict(torch.load(filename + "_actor"))
+		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))

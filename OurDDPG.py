@@ -3,7 +3,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import utils
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,7 +25,7 @@ class Actor(nn.Module):
 	def forward(self, state):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
-		return self.max_action * torch.tanh(self.l3(a)) 
+		return self.max_action * torch.tanh(self.l3(a))
 
 
 class Critic(nn.Module):
@@ -52,7 +51,7 @@ class DDPG(object):
 
 		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
-		self.critic_optimizer = torch.optim.Adam(self.critic.parameters())		
+		self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
 
 		self.discount = discount
 		self.tau = tau
@@ -96,3 +95,18 @@ class DDPG(object):
 
 		for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
 			target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+
+	def save(self, filename):
+		torch.save(self.critic.state_dict(), filename + "_critic")
+		torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
+		torch.save(self.actor.state_dict(), filename + "_actor")
+		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
+
+
+	def load(self, filename):
+		self.critic.load_state_dict(torch.load(filename + "_critic"))
+		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
+		self.actor.load_state_dict(torch.load(filename + "_actor"))
+		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
+
