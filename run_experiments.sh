@@ -1,48 +1,41 @@
 #!/bin/bash
 
 # Script to reproduce results
+export CUDA_VISIBLE_DEVICES=6
 
-for ((i=0;i<10;i+=1))
+for ((i=3;i<10;i+=1))
 do 
-	python main.py \
-	--policy_name "TD3" \
-	--env_name "HalfCheetah-v2" \
-	--seed $i \
-	--start_timesteps 10000
 
-	python main.py \
-	--policy_name "TD3" \
-	--env_name "Hopper-v2" \
-	--seed $i \
-	--start_timesteps 1000
+  # model free
+  python main.py \
+  --max_timesteps 1000000 \
+  --policy_name "TD3" \
+  --env_name "Hopper-v2" \
+  --seed $i \
+	--save_models &
 
+	# backward model based
 	python main.py \
-	--policy_name "TD3" \
-	--env_name "Walker2d-v2" \
-	--seed $i \
-	--start_timesteps 1000
+	--save_models \
+  --max_timesteps 1000000 \
+  --policy_name "TD3" \
+  --bwd_model_update_freq 5e3 \
+  --env_name "Hopper-v2" \
+  --seed $i \
+  --model_based backward \
+  --model_iters 10 &
 
-	python main.py \
-	--policy_name "TD3" \
-	--env_name "Ant-v2" \
-	--seed $i \
-	--start_timesteps 10000
+  # forward model based
+  python main.py \
+	--save_models \
+  --max_timesteps 1000000 \
+  --policy_name "TD3" \
+  --fwd_model_update_freq 5e3 \
+  --env_name "Hopper-v2" \
+  --seed $i \
+  --model_based forward \
+  --model_iters 10 &
 
-	python main.py \
-	--policy_name "TD3" \
-	--env_name "InvertedPendulum-v2" \
-	--seed $i \
-	--start_timesteps 1000
-
-	python main.py \
-	--policy_name "TD3" \
-	--env_name "InvertedDoublePendulum-v2" \
-	--seed $i \
-	--start_timesteps 1000
-
-	python main.py \
-	--policy_name "TD3" \
-	--env_name "Reacher-v2" \
-	--seed $i \
-	--start_timesteps 1000
 done
+
+wait

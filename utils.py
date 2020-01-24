@@ -60,7 +60,8 @@ def train_model_es(model,
                    max_epochs=100,
                    v_size=0.2,
                    patience=10,
-				   num_cores=10):
+				   num_cores=30,
+				   checkpoint_name='checkpoint.pt'):
     """Trains a model from given labels with early stopping
 
     :param model: the model to be trained
@@ -81,7 +82,7 @@ def train_model_es(model,
     :type patience: int
     """
     # for visualizing plots on tensorboard
-    writer = SummaryWriter(log_dir='data/TrainingLogs/'+str(int(random()*100000)))
+    # writer = SummaryWriter(log_dir='data/TrainingLogs/'+str(int(random()*100000)))
 
     valid_size = int(np.floor(len(x_list) * v_size))
     train_size = len(x_list) - valid_size
@@ -103,13 +104,13 @@ def train_model_es(model,
         dataset=train_data,
         shuffle=True,
         batch_size=1024,
-        num_workers=num_cores)
+        num_workers=0)
 
     valid_loader = data.DataLoader(
         dataset=valid_data,
         shuffle=True,
         batch_size=1024,
-        num_workers=num_cores)
+        num_workers=0)
 
     # train the model
     epoch = 0
@@ -146,12 +147,12 @@ def train_model_es(model,
             loss = criterion(y_pred, y_batch)
             valid_losses.append(loss.item())
 
-        writer.add_scalars('data/err_vs_epoch',
-                           {'train_loss' : float(np.average(train_losses))},
-                           epoch)
-        writer.add_scalars('data/err_vs_epoch',
-                           {'valid_loss' : float(np.average(valid_losses))},
-                           epoch)
+        # writer.add_scalars('data/err_vs_epoch',
+        #                    {'train_loss' : float(np.average(train_losses))},
+        #                    epoch)
+        # writer.add_scalars('data/err_vs_epoch',
+        #                    {'valid_loss' : float(np.average(valid_losses))},
+        #                    epoch)
 
         train_loss = np.average(train_losses)
         valid_loss = np.average(valid_losses)
@@ -160,12 +161,12 @@ def train_model_es(model,
         if best_loss is None or valid_loss < best_loss:
             best_epoch = epoch
             best_loss = valid_loss
-            torch.save(model.state_dict(), 'checkpoint.pt')
+            torch.save(model.state_dict(), checkpoint_name)
         print('current best:', best_loss, '(epoch', best_epoch, ')')
-    model.load_state_dict(torch.load('checkpoint.pt'))
-    writer.close()
+    model.load_state_dict(torch.load(checkpoint_name))
+    # writer.close()
 
-def update_forward_model(model, Ts):
+def update_forward_model(model, Ts, checkpoint_name='xyz'):
 	"""
 	function to update the forward dynamics model
 	:param model: ANN defining the forward dynamics model
@@ -198,13 +199,14 @@ def update_forward_model(model, Ts):
 				   X_list_normalized,
 				   Y_list_normalized,
 				   optimizer,
-				   criterion)
+				   criterion,
+				   checkpoint_name=checkpoint_name+'_fwd.pt')
 
 	print('            --- FORWARD MODEL TRAINING DONE ---           ')
 
 	return X_norm, Y_norm
 
-def update_backward_model(model, Ts):
+def update_backward_model(model, Ts, checkpoint_name='xyz'):
 	"""
 	function to update the backward dynamics model
 	:param model: ANN defining the forward dynamics model
@@ -237,8 +239,15 @@ def update_backward_model(model, Ts):
 				   X_list_normalized,
 				   Y_list_normalized,
 				   optimizer,
-				   criterion)
+				   criterion,
+				   checkpoint_name=checkpoint_name+'_bwd.pt')
 
 	print('            --- TRAINING DONE ---           ')
 
 	return X_norm, Y_norm
+
+
+def set_seed(env, seed):
+	env.seed(seed)
+	torch.manual_seed(seed)
+	np.random.seed(seed)

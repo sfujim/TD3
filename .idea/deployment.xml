@@ -2,7 +2,21 @@
 <project version="4">
   <component name="PublishConfigData">
     <serverData>
+      <paths name="haresh92@dgx-4.cs.utexas.edu:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="td3-titan-11">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/scratch/cluster/haresh92/TD3" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="titan-5">
         <serverdata>
           <mappings>
             <mapping deploy="/scratch/cluster/haresh92/TD3" local="$PROJECT_DIR$" web="/" />
