@@ -6,27 +6,28 @@ for ((i=0;i<10;i+=1))
 do 
 	python main.py \
 	--policy "TD3" \
-	--env "HalfCheetah-v2" \
-	--seed $i \
-	--start_timesteps 10000
+	--env "HalfCheetah-v3" \
+	--seed $i
 
 	python main.py \
 	--policy "TD3" \
-	--env "Hopper-v2" \
-	--seed $i \
-	--start_timesteps 1000
+	--env "Hopper-v3" \
+	--seed $i
 
 	python main.py \
 	--policy "TD3" \
-	--env "Walker2d-v2" \
-	--seed $i \
-	--start_timesteps 1000
+	--env "Walker2d-v3" \
+	--seed $i
 
 	python main.py \
 	--policy "TD3" \
-	--env "Ant-v2" \
-	--seed $i \
-	--start_timesteps 10000
+	--env "Ant-v3" \
+	--seed $i
+
+	python main.py \
+	--policy "TD3" \
+	--env "Humanoid-v3" \
+	--seed $i
 
 	python main.py \
 	--policy "TD3" \
