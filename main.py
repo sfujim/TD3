@@ -72,11 +72,13 @@ if __name__ == "__main__":
 	
 	state_dim = env.observation_space.shape[0]
 	action_dim = env.action_space.shape[0] 
-	max_action = float(env.action_space.high[0])
+	min_action = env.action_space.low
+	max_action = env.action_space.high
 
 	kwargs = {
 		"state_dim": state_dim,
 		"action_dim": action_dim,
+		"min_action": min_action,
 		"max_action": max_action,
 		"discount": args.discount,
 		"tau": args.tau,
@@ -85,8 +87,8 @@ if __name__ == "__main__":
 	# Initialize policy
 	if args.policy == "TD3":
 		# Target policy smoothing is scaled wrt the action scale
-		kwargs["policy_noise"] = args.policy_noise * max_action
-		kwargs["noise_clip"] = args.noise_clip * max_action
+		kwargs["policy_noise"] = args.policy_noise * (max_action - min_action) / 2
+		kwargs["noise_clip"] = args.noise_clip * (max_action - min_action) / 2
 		kwargs["policy_freq"] = args.policy_freq
 		policy = TD3.TD3(**kwargs)
 	elif args.policy == "OurDDPG":
@@ -118,8 +120,8 @@ if __name__ == "__main__":
 		else:
 			action = (
 				policy.select_action(np.array(state))
-				+ np.random.normal(0, max_action * args.expl_noise, size=action_dim)
-			).clip(-max_action, max_action)
+				+ np.random.normal(0, (max_action - min_action) * args.expl_noise / 2, size=action_dim)
+			).clip(min_action, max_action)
 
 		# Perform action
 		next_state, reward, done, _ = env.step(action) 
