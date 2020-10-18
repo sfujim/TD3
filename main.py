@@ -12,8 +12,10 @@ import DDPG
 
 # Runs policy for X episodes and returns average reward
 # A fixed seed is used for the eval environment
-def eval_policy(policy, env_name, seed, eval_episodes=10):
+def eval_policy(policy, env_name, seed, eval_episodes=10, display=True):
 	eval_env = gym.make(env_name)
+	render = lambda : plt.imshow(eval_env.render(mode='rgb_array'))
+	img = plt.imshow(eval_env.render(mode='rgb_array')) # only call this once
 	eval_env.seed(seed + 100)
 
 	avg_reward = 0.
@@ -21,6 +23,8 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 		state, done = eval_env.reset(), False
 		while not done:
 			action = policy.select_action(np.array(state))
+			if display:
+				eval_env.render()
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
 
@@ -29,6 +33,8 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 	print("---------------------------------------")
 	print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
 	print("---------------------------------------")
+	# if display:
+	# 	eval_env.render()
 	return avg_reward
 
 
@@ -40,7 +46,7 @@ if __name__ == "__main__":
 	parser.add_argument("--seed", default=0, type=int)              # Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--start_timesteps", default=25e3, type=int)# Time steps initial random policy is used
 	parser.add_argument("--eval_freq", default=5e3, type=int)       # How often (time steps) we evaluate
-	parser.add_argument("--max_timesteps", default=1e6, type=int)   # Max time steps to run environment
+	parser.add_argument("--max_timesteps", default=1e4, type=int)   # Max time steps to run environment
 	parser.add_argument("--expl_noise", default=0.1)                # Std of Gaussian exploration noise
 	parser.add_argument("--batch_size", default=256, type=int)      # Batch size for both actor and critic
 	parser.add_argument("--discount", default=0.99)                 # Discount factor
@@ -121,6 +127,8 @@ if __name__ == "__main__":
 				+ np.random.normal(0, max_action * args.expl_noise, size=action_dim)
 			).clip(-max_action, max_action)
 
+		# env.render()
+
 		# Perform action
 		next_state, reward, done, _ = env.step(action) 
 		done_bool = float(done) if episode_timesteps < env._max_episode_steps else 0
@@ -146,6 +154,6 @@ if __name__ == "__main__":
 
 		# Evaluate episode
 		if (t + 1) % args.eval_freq == 0:
-			evaluations.append(eval_policy(policy, args.env, args.seed))
+			evaluations.append(eval_policy(policy, args.env, args.seed, True))
 			np.save(f"./results/{file_name}", evaluations)
 			if args.save_model: policy.save(f"./models/{file_name}")
