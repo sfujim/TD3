@@ -21,12 +21,11 @@ action_high = 3.0
 state_low = -15
 state_high = 15
 
-
 # Make CPU if cuda doesnt work
 device = "cuda"  
 
 
-class GenerativeReplay():
+class GenerativeReplay:
     def __init__(self):
         # Model
         self.model = VAE().to(device)
@@ -40,27 +39,41 @@ class GenerativeReplay():
             self.test()
             self.buffer = []
 
-    def sample():
+    def sample(self, amount):
+        # Come up with some mu and sigma
+        # Run them through the decoder
+        # Collect double the amount needed
+        # Pick the best top half
+        # Return them
         pass
 
-    def train():
+    def train(self):
         pass
 
-    def test():
+    def test(self):
         pass
 
-    def normalize(experience):
+    def normalize(self, experience):
         # [s0, s1, s2, s3, a, s0, s1, s2, s3, r, d]
-        res = []
+        return np.concatenate(
+            self.normalize_state(experience[:state_dim]),
+            self.normalize_action(experience[state_dim+1]), # TODO: maybe turn into array, if we dont get it as such
+            self.normalize_state(experience[state_dim+2:state_dim+2+state_dim])
+            self.normalize_reward(experience[-2])
+            np.array([experience[-1]])
+        )
 
-    def normalize_action(x):
+
+    def normalize_action(self, x):
         return (x-action_low)/(action_high-action_low)
-    def normalize_state(s):
+
+    def normalize_state(self, s):
         res = []
         for i in s:
             res.append((i-state_low)/(state_high-state_low))
         return res
-    def normalize_reward(r):
+
+    def normalize_reward(self, r):
         return np.array([r/20.0])   
 
 
