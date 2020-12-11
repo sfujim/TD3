@@ -39,6 +39,7 @@ class GenerativeReplay:
     def add(self, experience):
         self.buffer.append(experience)
         if len(self.buffer) >= BUFFER_SIZE:
+            random.shuffle(self.buffer)
             self.train()
             self.test()
             self.buffer = []
@@ -63,10 +64,7 @@ class GenerativeReplay:
 
     # Train the model with what we have in the buffer and some generated data
     def train(self):
-
-        random.shuffle(self.buffer)
         self.model.train()
-
         train_data = self.buffer[:len(self.buffer)*TRAIN_TO_TEST]
 
         for w in range(len(EPOCHS))
@@ -85,7 +83,18 @@ class GenerativeReplay:
 
     # Test the model for stats
     def test(self):
-        pass
+        self.model.eval()
+        test_data = self.buffer[len(self.buffer)*TRAIN_TO_TEST:]
+
+        test_loss = 0
+        for i in range(0, len(test_data), BATCH_SIZE):
+            batch = test_data[i:i+BATCH_SIZE].to(device)
+            recons, mu, sigma = self.model(batch)
+            loss = self.loss_function(recons, batch, mu, sigma)
+            test_loss += loss.item()
+            
+        print(f"Tested the VAE with loss {(test_loss/len(test_data))*100}") 
+
 
     # Given an experience from the env, make an array that can fit the model
     def normalize(self, experience):
