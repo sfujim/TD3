@@ -67,7 +67,7 @@ class GenerativeReplay:
         self.model.train()
         train_data = self.buffer[:len(self.buffer)*TRAIN_TO_TEST]
 
-        for w in range(len(EPOCHS))
+        for w in range(len(EPOCHS)):
             train_loss = 0
 
             for i in range(0, len(train_data), BATCH_SIZE):
@@ -102,8 +102,8 @@ class GenerativeReplay:
         return np.concatenate(
             self.normalize_state(experience[:state_dim]),
             self.normalize_action(experience[state_dim+1]), # TODO: maybe turn into array, if we dont get it as such
-            self.normalize_state(experience[state_dim+2:state_dim+2+state_dim])
-            self.normalize_reward(experience[-2])
+            self.normalize_state(experience[state_dim+2:state_dim+2+state_dim]),
+            self.normalize_reward(experience[-2]),
             np.array([experience[-1]])
         )
 
