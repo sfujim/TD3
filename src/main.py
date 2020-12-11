@@ -40,6 +40,7 @@ if __name__ == "__main__":
 
 	# General
 	USE_GENERATIVE = False
+	NO_REPLAY = False
 	ENV = "InvertedPendulum-v2"
 	START_TIMESTEPS = 25e3
 	EVAL_FREQ = 5e3
@@ -92,6 +93,8 @@ if __name__ == "__main__":
 	replay_component = None
 	if USE_GENERATIVE:
 		replay_component = GenerativeReplay()
+	elif NO_REPLAY:
+		replay_component = utils.ReplayBuffer(state_dim, action_dim, BATCH_SIZE)
 	else:
 		replay_component = utils.ReplayBuffer(state_dim, action_dim)
 	
