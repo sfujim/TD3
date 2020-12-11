@@ -4,7 +4,9 @@ from torch.nn import functional as F
 import numpy as np
 import gym
 from tqdm import tqdm
+import random
 
+# Hyper parameters
 BATCH_SIZE = 64
 EPOCHS = 50
 INPUT_SIZE = 11
@@ -12,6 +14,7 @@ LAYER_SIZE = 10
 LATENT_SIZE = 3 
 LEARNING_RATE = 0.001
 BUFFER_SIZE = 1024
+TRAIN_TO_TEST = 0.9
 
 # Env sizes
 state_dim = 4
@@ -32,6 +35,7 @@ class GenerativeReplay:
         self.opt = optim.Adam(self.model.parameters(), lr=LEARNING_RATE)
         self.buffer = []      
 
+    # Add new experiences as the come
     def add(self, experience):
         self.buffer.append(experience)
         if len(self.buffer) >= BUFFER_SIZE:
@@ -39,6 +43,7 @@ class GenerativeReplay:
             self.test()
             self.buffer = []
 
+    # Sample a give amount of new experiences from the model
     def sample(self, amount):
         # Come up with some mu and sigma
         # Run them through the decoder
@@ -47,12 +52,42 @@ class GenerativeReplay:
         # Return them
         pass
 
-    def train(self):
-        pass
+    # Function to calculate loss while training and testing
+    # Taken from https://github.com/pytorch/examples/blob/master/vae/main.py
+    def loss_function(recon_x, x, mu, sigma):
+        BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
+        KLD = -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
+        return BCE + KLD
 
+
+
+    # Train the model with what we have in the buffer and some generated data
+    def train(self):
+
+        random.shuffle(self.buffer)
+        self.model.train()
+
+        train_data = self.buffer[:len(self.buffer)*TRAIN_TO_TEST]
+
+        for w in range(len(EPOCHS))
+            train_loss = 0
+
+            for i in range(0, len(train_data), BATCH_SIZE):
+                batch = train_data[i:i+BATCH_SIZE].to(device)
+                self.model.zero_grad()
+                recons, mu, sigma = self.model(batch)
+                loss = self.loss_function(recons, batch, mu, sigma)
+                loss.backward()
+                train_loss += loss.item()
+                self.opt.step()
+            
+        print(f"Trained the VAE")
+
+    # Test the model for stats
     def test(self):
         pass
 
+    # Given an experience from the env, make an array that can fit the model
     def normalize(self, experience):
         # [s0, s1, s2, s3, a, s0, s1, s2, s3, r, d]
         return np.concatenate(
@@ -110,7 +145,4 @@ class VAE(nn.Module):
         z = self.reparameterize(mu, sigma)
         return self.decode(z), mu, sigma
 
-    def loss_function(recon_x, x, mu, sigma):
-        BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
-        KLD = -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
-        return BCE + KLD
+
