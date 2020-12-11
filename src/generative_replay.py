@@ -10,7 +10,7 @@ import random
 BATCH_SIZE = 64
 EPOCHS = 50
 INPUT_SIZE = 11
-LAYER_SIZE = 10
+LAYER_SIZE = 7
 LATENT_SIZE = 3 
 LEARNING_RATE = 0.001
 BUFFER_SIZE = 1024
@@ -92,7 +92,7 @@ class GenerativeReplay:
             recons, mu, sigma = self.model(batch)
             loss = self.loss_function(recons, batch, mu, sigma)
             test_loss += loss.item()
-            
+
         print(f"Tested the VAE with loss {(test_loss/len(test_data))*100}") 
 
 
@@ -121,7 +121,7 @@ class GenerativeReplay:
         return np.array([r/20.0])   
 
 
-
+# Variational Autoencoder that mostly I built
 class VAE(nn.Module):
     def __init__(self):
         super(VAE, self).__init__()
@@ -140,6 +140,7 @@ class VAE(nn.Module):
         out = F.relu(self.l1(x))
         return self.l2a(out), self.l2b(out)
     
+    # Taken from https://github.com/pytorch/examples/blob/master/vae/main.py
     def reparameterize(self, mu, sigma):
         std = torch.exp(0.5*sigma)
         eps = torch.randn_like(std)
