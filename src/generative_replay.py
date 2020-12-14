@@ -10,11 +10,11 @@ from torch.autograd import Variable
 # Hyper parameters
 BATCH_SIZE = 64
 EPOCHS = 3
-INPUT_SIZE = 11
-LAYER_SIZE = 7
+INPUT_SIZE = 12
+LAYER_SIZE = 9
 LATENT_SIZE = 3 
 LEARNING_RATE = 0.001
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 4096
 TRAIN_TO_TEST = 0.9
 
 # Env sizes
@@ -30,18 +30,20 @@ device = "cuda"
 
 
 class GenerativeReplay:
+    train_intens = False
     def __init__(self):
         # Model
         self.model = VAE().to(device)
         self.opt = optim.Adam(self.model.parameters(), lr=LEARNING_RATE)
-        self.buffer = []      
+        self.buffer = []
+        self.train_intens = False      
 
     # Add new experiences as the come
     def add(self, state, action, next_state, reward, done):
         experience = [s for s in state]
         experience.append(action)
         experience.extend([s for s in next_state])
-        experience.extend([reward, done])
+        experience.extend([reward, done, done])
         experience = self.normalize(experience)
 
         self.buffer.append(experience)
@@ -59,14 +61,13 @@ class GenerativeReplay:
 
             sample_batch = Variable(torch.randn(amount, LATENT_SIZE)).to(device)
             outputs = self.descale(self.model.decode(sample_batch)).to("cpu")
-            
 
             return (
                 torch.FloatTensor(outputs[:, 0:4]).to(device),
                 torch.FloatTensor(outputs[:, 4]).unsqueeze(1).to(device),
                 torch.FloatTensor(outputs[:, 5:9]).to(device),
-                torch.FloatTensor(outputs[:, -2]).unsqueeze(1).to(device),
-                torch.FloatTensor(outputs[:, -1]).unsqueeze(1).to(device)
+                torch.FloatTensor(outputs[:, -3]).unsqueeze(1).to(device),
+                torch.FloatTensor(outputs[:, -2]).unsqueeze(1).to(device)
             )
 
 
@@ -81,10 +82,14 @@ class GenerativeReplay:
 
     # Train the model with what we have in the buffer and some generated data
     def train(self):
+        E = EPOCHS
+        if self.train_intens:
+            print('Intense')
+            E = EPOCHS*20
         self.model.train()
         train_data = self.buffer[:int(len(self.buffer)*TRAIN_TO_TEST)]
 
-        for w in range(EPOCHS):
+        for w in range(E):
             train_loss = 0
 
             for i in range(0, len(train_data), BATCH_SIZE):
@@ -97,8 +102,10 @@ class GenerativeReplay:
                 self.opt.step()
             
         # print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
+        self.train_intens = False
 
     # Test the model for stats
+
     def test(self):
         self.model.eval()
         test_data = self.buffer[int(len(self.buffer)*TRAIN_TO_TEST):]
@@ -120,7 +127,8 @@ class GenerativeReplay:
             self.normalize_state(experience[:state_dim]),
             np.array([self.normalize_action(experience[state_dim+1])]), # TODO: maybe turn into array, if we dont get it as such
             self.normalize_state(experience[state_dim+2:state_dim+2+state_dim]),
-            self.normalize_reward(experience[-2]),
+            self.normalize_reward(experience[-3]),
+            np.array([experience[-2]]),
             np.array([experience[-1]])
         ))
 

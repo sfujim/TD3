@@ -107,6 +107,8 @@ if __name__ == "__main__":
 	episode_timesteps = 0
 	episode_num = 0
 
+	train_intensive = False
+
 	for t in range(int(MAX_TIMESTEPS)):
 		
 		episode_timesteps += 1
@@ -115,6 +117,9 @@ if __name__ == "__main__":
 		if t < START_TIMESTEPS:
 			action = env.action_space.sample()
 		else:
+			if not train_intensive:
+				replay_component.train_intens = True
+				train_intensive = False
 			action = (
 				policy.select_action(np.array(state))
 				+ np.random.normal(0, max_action * EXPL_NOISE, size=action_dim)
