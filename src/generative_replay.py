@@ -9,7 +9,7 @@ from torch.autograd import Variable
 
 # Hyper parameters
 BATCH_SIZE = 64
-EPOCHS = 50
+EPOCHS = 3
 INPUT_SIZE = 11
 LAYER_SIZE = 7
 LATENT_SIZE = 3 
@@ -54,15 +54,25 @@ class GenerativeReplay:
     # Sample a give amount of new experiences from the model
     # The output should be in GPU
     def sample(self, amount):
-        sample = Variable(torch.randn(amount, LATENT_SIZE)).to(device)
-        
-        out = self.model.decode(sample)
-        out = self.descale(out)
+
+        with torch.no_grad():
+
+            sample_batch = Variable(torch.randn(amount, LATENT_SIZE)).to(device)
+            outputs = self.descale(self.model.decode(sample_batch)).to("cpu")
+            
+
+            return (
+                torch.FloatTensor(outputs[:, 0:4]).to(device),
+                torch.FloatTensor(outputs[:, 4]).unsqueeze(1).to(device),
+                torch.FloatTensor(outputs[:, 5:9]).to(device),
+                torch.FloatTensor(outputs[:, -2]).unsqueeze(1).to(device),
+                torch.FloatTensor(outputs[:, -1]).unsqueeze(1).to(device)
+            )
 
 
     # Function to calculate loss while training and testing
     # Taken from https://github.com/pytorch/examples/blob/master/vae/main.py
-    def loss_function(recon_x, x, mu, sigma):
+    def loss_function(self, recon_x, x, mu, sigma):
         BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
         KLD = -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
         return BCE + KLD
@@ -72,13 +82,13 @@ class GenerativeReplay:
     # Train the model with what we have in the buffer and some generated data
     def train(self):
         self.model.train()
-        train_data = self.buffer[:len(self.buffer)*TRAIN_TO_TEST]
+        train_data = self.buffer[:int(len(self.buffer)*TRAIN_TO_TEST)]
 
-        for w in range(len(EPOCHS)):
+        for w in range(EPOCHS):
             train_loss = 0
 
             for i in range(0, len(train_data), BATCH_SIZE):
-                batch = train_data[i:i+BATCH_SIZE].to(device)
+                batch = torch.FloatTensor(train_data[i:i+BATCH_SIZE]).to(device)
                 self.model.zero_grad()
                 recons, mu, sigma = self.model(batch)
                 loss = self.loss_function(recons, batch, mu, sigma)
@@ -86,16 +96,16 @@ class GenerativeReplay:
                 train_loss += loss.item()
                 self.opt.step()
             
-        print(f"Trained the VAE")
+        # print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
 
     # Test the model for stats
     def test(self):
         self.model.eval()
-        test_data = self.buffer[len(self.buffer)*TRAIN_TO_TEST:]
+        test_data = self.buffer[int(len(self.buffer)*TRAIN_TO_TEST):]
 
         test_loss = 0
         for i in range(0, len(test_data), BATCH_SIZE):
-            batch = test_data[i:i+BATCH_SIZE].to(device)
+            batch =  torch.FloatTensor(test_data[i:i+BATCH_SIZE]).to(device)
             recons, mu, sigma = self.model(batch)
             loss = self.loss_function(recons, batch, mu, sigma)
             test_loss += loss.item()
@@ -106,13 +116,13 @@ class GenerativeReplay:
     # Given an experience from the env, make an array that can fit the model
     def normalize(self, experience):
         # [s0, s1, s2, s3, a, s0, s1, s2, s3, r, d]
-        return np.concatenate(
+        return np.concatenate((
             self.normalize_state(experience[:state_dim]),
-            self.normalize_action(experience[state_dim+1]), # TODO: maybe turn into array, if we dont get it as such
+            np.array([self.normalize_action(experience[state_dim+1])]), # TODO: maybe turn into array, if we dont get it as such
             self.normalize_state(experience[state_dim+2:state_dim+2+state_dim]),
             self.normalize_reward(experience[-2]),
             np.array([experience[-1]])
-        )
+        ))
 
 
     def normalize_action(self, x):
@@ -131,8 +141,30 @@ class GenerativeReplay:
 
 
     # Should return individual objects just like env.step()
-    def descale(self, output):
-        # States
+    def descale(self, x):
+        # State
+        ((x[:, 0].mul_(state_high-state_low)).add_(state_low))
+        ((x[:, 1].mul_(state_high-state_low)).add_(state_low))
+        ((x[:, 2].mul_(state_high-state_low)).add_(state_low))
+        ((x[:, 3].mul_(state_high-state_low)).add_(state_low))
+
+        # Action
+        ((x[:, 4].mul_(action_high-action_low)).add_(action_low))
+        
+        # State
+        ((x[:, 5].mul_(state_high-state_low)).add_(state_low))
+        ((x[:, 6].mul_(state_high-state_low)).add_(state_low))
+        ((x[:, 7].mul_(state_high-state_low)).add_(state_low))
+        ((x[:, 8].mul_(state_high-state_low)).add_(state_low))
+        
+        # Reward
+        (x[:, 9].mul_(20.0))
+        
+        # Done
+        (x[:, 10].round_())
+        
+        return x
+
             
         
 

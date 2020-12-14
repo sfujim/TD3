@@ -39,7 +39,7 @@ if __name__ == "__main__":
 	# Hyper parameters
 
 	# General
-	USE_GENERATIVE = False
+	USE_GENERATIVE = True
 	NO_REPLAY = False
 	ENV = "InvertedPendulum-v2"
 	START_TIMESTEPS = 25e3
@@ -137,7 +137,8 @@ if __name__ == "__main__":
 
 		if done: 
 			# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
-			print(f"Episode {episode_num} done, lasted {episode_timesteps} timesteps, total reward is {episode_reward}")
+
+			# print(f"Total timesteps: {t},  Episode {episode_num} done, lasted {episode_timesteps} timesteps, total reward is {episode_reward}")
 
 			# Reset environment
 			state, done = env.reset(), False
@@ -147,5 +148,6 @@ if __name__ == "__main__":
 
 		# Evaluate episode
 		if (t + 1) % EVAL_FREQ == 0:
+			print(f"Total timesteps: {t}")
 			evaluations.append(eval_policy(policy, ENV, SEED))
 			np.save(f"./results/td3/{FILE_NAME}", evaluations)
