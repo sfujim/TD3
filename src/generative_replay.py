@@ -5,6 +5,7 @@ import numpy as np
 import gym
 from tqdm import tqdm
 import random
+from torch.autograd import Variable
 
 # Hyper parameters
 BATCH_SIZE = 64
@@ -36,7 +37,13 @@ class GenerativeReplay:
         self.buffer = []      
 
     # Add new experiences as the come
-    def add(self, experience):
+    def add(self, state, action, next_state, reward, done):
+        experience = [s for s in state]
+        experience.append(action)
+        experience.extend([s for s in next_state])
+        experience.extend([reward, done])
+        experience = self.normalize(experience)
+
         self.buffer.append(experience)
         if len(self.buffer) >= BUFFER_SIZE:
             random.shuffle(self.buffer)
@@ -45,13 +52,13 @@ class GenerativeReplay:
             self.buffer = []
 
     # Sample a give amount of new experiences from the model
+    # The output should be in GPU
     def sample(self, amount):
-        # Come up with some mu and sigma
-        # Run them through the decoder
-        # Collect double the amount needed
-        # Pick the best top half
-        # Return them
-        pass
+        sample = Variable(torch.randn(amount, LATENT_SIZE)).to(device)
+        
+        out = self.model.decode(sample)
+        out = self.descale(out)
+
 
     # Function to calculate loss while training and testing
     # Taken from https://github.com/pytorch/examples/blob/master/vae/main.py
@@ -119,6 +126,18 @@ class GenerativeReplay:
 
     def normalize_reward(self, r):
         return np.array([r/20.0])   
+
+
+
+
+    # Should return individual objects just like env.step()
+    def descale(self, output):
+        # States
+            
+        
+
+
+
 
 
 # Variational Autoencoder that mostly I built
