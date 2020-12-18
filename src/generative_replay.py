@@ -166,13 +166,19 @@ class GenerativeReplay:
         return x
 
             
-        
+    # Random some from latents
     def get_latent_samples(self, amount):
-        # TODO: sample better according to latent dist
-        sample_batch = Variable(torch.randn(amount, LATENT_SIZE)).to(device)
-        return sample_batch
 
+        res = []
+        ind = np.random.randint(0, len(self.model.latents), size=amount) 
+        for i in ind:
+            res.append(self.model.latents[i])
 
+        t = tuple(res)
+        print(t)
+        s = torch.cat(t, 1)
+        print(s)
+        return s
 
 
 
@@ -190,6 +196,9 @@ class VAE(nn.Module):
         self.l3 = nn.Linear(LATENT_SIZE, LAYER_SIZE)
         self.l4 = nn.Linear(LAYER_SIZE, INPUT_SIZE)
 
+        self.latents = []
+        self.l_size = 1e6
+
     
     def encode(self, x):
         out = F.relu(self.l1(x))
@@ -199,7 +208,12 @@ class VAE(nn.Module):
     def reparameterize(self, mu, sigma):
         std = torch.exp(0.5*sigma)
         eps = torch.randn_like(std)
-        return mu + eps*std
+        if len(self.latents) >= self.l_size:
+            self.latents = self.latents[self.l_size//2:]
+        res = mu + eps*std
+        for t in res:
+            self.latents.append(t)
+        return res
     
     def decode(self, x):
         out = F.relu(self.l3(x))
