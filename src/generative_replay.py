@@ -30,13 +30,12 @@ device = "cuda"
 
 
 class GenerativeReplay:
-    train_intens = False
     def __init__(self):
         # Model
         self.model = VAE().to(device)
         self.opt = optim.Adam(self.model.parameters(), lr=LEARNING_RATE)
         self.buffer = []
-        self.train_intens = False      
+        self.training = False
 
     # Add new experiences as the come
     def add(self, state, action, next_state, reward, done):
@@ -47,7 +46,7 @@ class GenerativeReplay:
         experience = self.normalize(experience)
 
         self.buffer.append(experience)
-        if len(self.buffer) >= BUFFER_SIZE:
+        if len(self.buffer) >= BUFFER_SIZE and self.training:
             random.shuffle(self.buffer)
             self.train()
             self.test()
@@ -59,7 +58,8 @@ class GenerativeReplay:
 
         with torch.no_grad():
 
-            sample_batch = Variable(torch.randn(amount, LATENT_SIZE)).to(device)
+            sample_batch = self.get_latent_samples(amount)
+            
             outputs = self.descale(self.model.decode(sample_batch)).to("cpu")
 
             return (
@@ -71,26 +71,18 @@ class GenerativeReplay:
             )
 
 
-    # Function to calculate loss while training and testing
-    # Taken from https://github.com/pytorch/examples/blob/master/vae/main.py
     def loss_function(self, recon_x, x, mu, sigma):
         BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
-        # KLD = -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
-        # return BCE + KLD
         return BCE
-
 
 
     # Train the model with what we have in the buffer and some generated data
     def train(self):
-        E = EPOCHS
-        if self.train_intens:
-            print('Intense')
-            E = EPOCHS*20
+        print("Train")
         self.model.train()
         train_data = self.buffer[:int(len(self.buffer)*TRAIN_TO_TEST)]
 
-        for w in range(E):
+        for w in range(EPOCHS):
             train_loss = 0
 
             for i in range(0, len(train_data), BATCH_SIZE):
@@ -103,7 +95,6 @@ class GenerativeReplay:
                 self.opt.step()
             
         # print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
-        self.train_intens = False
 
     # Test the model for stats
 
@@ -176,6 +167,10 @@ class GenerativeReplay:
 
             
         
+    def get_latent_samples(self, amount):
+        # TODO: sample better according to latent dist
+        sample_batch = Variable(torch.randn(amount, LATENT_SIZE)).to(device)
+        return sample_batch
 
 
 
