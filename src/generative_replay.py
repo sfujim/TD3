@@ -75,8 +75,9 @@ class GenerativeReplay:
     # Taken from https://github.com/pytorch/examples/blob/master/vae/main.py
     def loss_function(self, recon_x, x, mu, sigma):
         BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
-        KLD = -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
-        return BCE + KLD
+        # KLD = -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
+        # return BCE + KLD
+        return BCE
 
 
 
