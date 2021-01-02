@@ -9,12 +9,12 @@ from torch.autograd import Variable
 
 # Hyper parameters
 BATCH_SIZE = 64
-EPOCHS = 3
+EPOCHS = 15
 INPUT_SIZE = 12
 LAYER_SIZE = 9
 LATENT_SIZE = 3 
 LEARNING_RATE = 0.001
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 1e4
 TRAIN_TO_TEST = 0.9
 
 # Env sizes
@@ -36,6 +36,7 @@ class GenerativeReplay:
         self.opt = optim.Adam(self.model.parameters(), lr=LEARNING_RATE)
         self.buffer = []
         self.training = False
+        self.first = True
 
     # Add new experiences as the come
     def add(self, state, action, next_state, reward, done):
@@ -52,24 +53,6 @@ class GenerativeReplay:
             self.test()
             self.buffer = []
 
-    # Sample a give amount of new experiences from the model
-    # The output should be in GPU
-    def sample(self, amount):
-
-        with torch.no_grad():
-
-            sample_batch = self.get_latent_samples(amount)
-            
-            outputs = self.descale(self.model.decode(sample_batch)).to("cpu")
-
-            return (
-                torch.FloatTensor(outputs[:, 0:4]).to(device),
-                torch.FloatTensor(outputs[:, 4]).unsqueeze(1).to(device),
-                torch.FloatTensor(outputs[:, 5:9]).to(device),
-                torch.FloatTensor(outputs[:, -3]).unsqueeze(1).to(device),
-                torch.FloatTensor(outputs[:, -2]).unsqueeze(1).to(device)
-            )
-
 
     def loss_function(self, recon_x, x, mu, sigma):
         BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
@@ -78,6 +61,7 @@ class GenerativeReplay:
 
     # Train the model with what we have in the buffer and some generated data
     def train(self):
+        global EPOCHS
         print("Train")
         self.model.train()
         train_data = self.buffer[:int(len(self.buffer)*TRAIN_TO_TEST)]
@@ -93,7 +77,7 @@ class GenerativeReplay:
                 loss.backward()
                 train_loss += loss.item()
                 self.opt.step()
-            
+        EPOCHS = 3
         # print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
 
     # Test the model for stats
@@ -138,6 +122,25 @@ class GenerativeReplay:
         return np.array([r/20.0])   
 
 
+    def eval(self, state, action, nstate, reward, done):
+
+        torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile=None)
+
+        experience = [s for s in state]
+        experience.append(action)
+        experience.extend([s for s in nstate])
+        experience.extend([reward, done, done])
+        p = torch.FloatTensor([experience])
+        print(p)
+        experience = torch.FloatTensor([self.normalize(experience)]).to(device)
+        print(experience)
+        out, _, _ = self.model(experience)
+        print(out)
+        out = self.descale(out)
+        print(out)
+        print('\n')
+
+
 
 
     # Should return individual objects just like env.step()
@@ -165,6 +168,25 @@ class GenerativeReplay:
         
         return x
 
+
+    # Sample a give amount of new experiences from the model
+    # The output should be in GPU
+    def sample(self, amount):
+
+        with torch.no_grad():
+
+            sample_batch = self.get_latent_samples(amount)
+            
+            outputs = self.descale(self.model.decode(sample_batch)).to("cpu")
+
+            return (
+                torch.FloatTensor(outputs[:, 0:4]).to(device),
+                torch.FloatTensor(outputs[:, 4]).unsqueeze(1).to(device),
+                torch.FloatTensor(outputs[:, 5:9]).to(device),
+                torch.FloatTensor(outputs[:, -3]).unsqueeze(1).to(device),
+                torch.FloatTensor(outputs[:, -2]).unsqueeze(1).to(device)
+            )
+
             
     # Random some from latents
     def get_latent_samples(self, amount):
@@ -174,12 +196,12 @@ class GenerativeReplay:
         for i in ind:
             res.append(self.model.latents[i])
 
-        t = tuple(res)
-        print(t)
-        s = torch.cat(t, 1)
-        print(s)
-        return s
-
+        z = torch.zeros((amount, LATENT_SIZE))
+        for t in range(len(z)):
+            z[t] = res[t]
+        # print(z)
+        z = z.to(device)
+        return z
 
 
 # Variational Autoencoder that mostly I built
@@ -197,7 +219,7 @@ class VAE(nn.Module):
         self.l4 = nn.Linear(LAYER_SIZE, INPUT_SIZE)
 
         self.latents = []
-        self.l_size = 1e6
+        self.l_size = 1e3
 
     
     def encode(self, x):
@@ -209,7 +231,7 @@ class VAE(nn.Module):
         std = torch.exp(0.5*sigma)
         eps = torch.randn_like(std)
         if len(self.latents) >= self.l_size:
-            self.latents = self.latents[self.l_size//2:]
+            self.latents = self.latents[int(len(self.latents)/2):]
         res = mu + eps*std
         for t in res:
             self.latents.append(t)
