@@ -10,8 +10,8 @@ from torch.autograd import Variable
 # Hyper parameters
 BATCH_SIZE = 64
 EPOCHS = 15
-INPUT_SIZE = 12
-LAYER_SIZE = 9
+INPUT_SIZE = 11
+LAYER_SIZE = 10
 LATENT_SIZE = 3 
 LEARNING_RATE = 0.001
 BUFFER_SIZE = 1e4
@@ -31,22 +31,23 @@ device = "cuda"
 
 class GenerativeReplay:
     def __init__(self):
-        # Model
         self.model = VAE().to(device)
         self.opt = optim.Adam(self.model.parameters(), lr=LEARNING_RATE)
         self.buffer = []
         self.training = False
         self.first = True
 
-    # Add new experiences as the come
+    # Add new experiences as they come
     def add(self, state, action, next_state, reward, done):
         experience = [s for s in state]
         experience.append(action)
         experience.extend([s for s in next_state])
-        experience.extend([reward, done, done])
+        experience.extend([reward, done])
         experience = self.normalize(experience)
 
         self.buffer.append(experience)
+
+        # If there is enough in the buffer, and the main told us to train, we train
         if len(self.buffer) >= BUFFER_SIZE and self.training:
             random.shuffle(self.buffer)
             self.train()
@@ -54,7 +55,7 @@ class GenerativeReplay:
             self.buffer = []
 
 
-    def loss_function(self, recon_x, x, mu, sigma):
+    def loss_function(self, recon_x, x):
         BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
         return BCE
 
@@ -62,7 +63,6 @@ class GenerativeReplay:
     # Train the model with what we have in the buffer and some generated data
     def train(self):
         global EPOCHS
-        print("Train")
         self.model.train()
         train_data = self.buffer[:int(len(self.buffer)*TRAIN_TO_TEST)]
 
@@ -70,18 +70,24 @@ class GenerativeReplay:
             train_loss = 0
 
             for i in range(0, len(train_data), BATCH_SIZE):
-                batch = torch.FloatTensor(train_data[i:i+BATCH_SIZE]).to(device)
                 self.model.zero_grad()
+
+                batch = torch.FloatTensor(train_data[i:i+BATCH_SIZE]).to(device)
                 recons, mu, sigma = self.model(batch)
-                loss = self.loss_function(recons, batch, mu, sigma)
+
+                loss = self.loss_function(recons, batch)
                 loss.backward()
                 train_loss += loss.item()
+
                 self.opt.step()
+
+            print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
+
+        # Ugly reset EPOCHS
         EPOCHS = 3
-        # print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
+        
 
     # Test the model for stats
-
     def test(self):
         self.model.eval()
         test_data = self.buffer[int(len(self.buffer)*TRAIN_TO_TEST):]
@@ -90,7 +96,7 @@ class GenerativeReplay:
         for i in range(0, len(test_data), BATCH_SIZE):
             batch =  torch.FloatTensor(test_data[i:i+BATCH_SIZE]).to(device)
             recons, mu, sigma = self.model(batch)
-            loss = self.loss_function(recons, batch, mu, sigma)
+            loss = self.loss_function(recons, batch)
             test_loss += loss.item()
 
         print(f"Tested the VAE with loss {(test_loss/len(test_data))*100}") 
@@ -101,13 +107,11 @@ class GenerativeReplay:
         # [s0, s1, s2, s3, a, s0, s1, s2, s3, r, d]
         return np.concatenate((
             self.normalize_state(experience[:state_dim]),
-            np.array([self.normalize_action(experience[state_dim+1])]), # TODO: maybe turn into array, if we dont get it as such
-            self.normalize_state(experience[state_dim+2:state_dim+2+state_dim]),
-            self.normalize_reward(experience[-3]),
-            np.array([experience[-2]]),
+            np.array(self.normalize_action(experience[state_dim])), # TODO: maybe turn into array, if we dont get it as such
+            self.normalize_state(experience[state_dim+1:state_dim+1+state_dim]),
+            self.normalize_reward(experience[-2]),
             np.array([experience[-1]])
         ))
-
 
     def normalize_action(self, x):
         return (x-action_low)/(action_high-action_low)
@@ -122,28 +126,7 @@ class GenerativeReplay:
         return np.array([r/20.0])   
 
 
-    def eval(self, state, action, nstate, reward, done):
-
-        torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile=None)
-
-        experience = [s for s in state]
-        experience.append(action)
-        experience.extend([s for s in nstate])
-        experience.extend([reward, done, done])
-        p = torch.FloatTensor([experience])
-        print(p)
-        experience = torch.FloatTensor([self.normalize(experience)]).to(device)
-        print(experience)
-        out, _, _ = self.model(experience)
-        print(out)
-        out = self.descale(out)
-        print(out)
-        print('\n')
-
-
-
-
-    # Should return individual objects just like env.step()
+    # Descale the output of the network to real values
     def descale(self, x):
         # State
         ((x[:, 0].mul_(state_high-state_low)).add_(state_low))
@@ -167,6 +150,29 @@ class GenerativeReplay:
         (x[:, 10].round_())
         
         return x
+
+
+    # Print some samples in the evaluestion for error checking
+    def eval(self, state, action, nstate, reward, done):
+
+        if not self.training:
+            return
+
+        torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile=None)
+
+        experience = [s for s in state]
+        experience.append(action)
+        experience.extend([s for s in nstate])
+        experience.extend([reward, done, done])
+        p = torch.FloatTensor([experience])
+        print(torch.flatten(p)[4])
+        experience = torch.FloatTensor([self.normalize(experience)]).to(device)
+        print(torch.flatten(experience)[4])
+        out, _, _ = self.model(experience)
+        print(torch.flatten(out)[4])
+        out = self.descale(out)
+        print(torch.flatten(out)[4])
+        print('\n')
 
 
     # Sample a give amount of new experiences from the model
