@@ -22,13 +22,13 @@ def eval_policy(policy, env_name, seed, eval_episodes, replay):
 	for _ in range(eval_episodes):
 		state, done = eval_env.reset(), False
 		e = True
+		print()
 		while not done:
 			old = state
 			action = policy.select_action(np.array(state))
-			print(action)
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
-			if e:
+			if True:
 				replay.eval(old, action, state, reward, done)
 				e = False
 

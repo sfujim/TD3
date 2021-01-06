@@ -32,6 +32,8 @@ class ReplayBuffer(object):
 	def sample(self, batch_size):
 		ind = np.random.randint(0, self.size, size=batch_size)
 
+		
+
 		return (
 			torch.FloatTensor(self.state[ind]).to(self.device),
 			torch.FloatTensor(self.action[ind]).to(self.device),
@@ -39,3 +41,6 @@ class ReplayBuffer(object):
 			torch.FloatTensor(self.reward[ind]).to(self.device),
 			torch.FloatTensor(self.not_done[ind]).to(self.device)
 		)
+
+	def eval(self, state, action, nstate, reward, done):
+		print(action)

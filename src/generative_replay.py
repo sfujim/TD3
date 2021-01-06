@@ -12,9 +12,9 @@ BATCH_SIZE = 64
 EPOCHS = 15
 INPUT_SIZE = 11
 LAYER_SIZE = 10
-LATENT_SIZE = 3 
+LATENT_SIZE = 4 
 LEARNING_RATE = 0.001
-BUFFER_SIZE = 1e4
+BUFFER_SIZE = 256
 TRAIN_TO_TEST = 0.9
 
 # Env sizes
@@ -84,7 +84,7 @@ class GenerativeReplay:
             print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
 
         # Ugly reset EPOCHS
-        EPOCHS = 3
+        EPOCHS = 1
         
 
     # Test the model for stats
@@ -144,7 +144,7 @@ class GenerativeReplay:
         ((x[:, 8].mul_(state_high-state_low)).add_(state_low))
         
         # Reward
-        (x[:, 9].mul_(20.0))
+        ((x[:, 9].mul_(20.0)).round_())
         
         # Done
         (x[:, 10].round_())
@@ -155,24 +155,25 @@ class GenerativeReplay:
     # Print some samples in the evaluestion for error checking
     def eval(self, state, action, nstate, reward, done):
 
-        if not self.training:
-            return
+        # if not self.training:
+        #     return
 
-        torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile=None)
+        # torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile=None)
 
-        experience = [s for s in state]
-        experience.append(action)
-        experience.extend([s for s in nstate])
-        experience.extend([reward, done, done])
-        p = torch.FloatTensor([experience])
-        print(torch.flatten(p)[4])
-        experience = torch.FloatTensor([self.normalize(experience)]).to(device)
-        print(torch.flatten(experience)[4])
-        out, _, _ = self.model(experience)
-        print(torch.flatten(out)[4])
-        out = self.descale(out)
-        print(torch.flatten(out)[4])
-        print('\n')
+        # experience = [s for s in state]
+        # experience.append(action)
+        # experience.extend([s for s in nstate])
+        # experience.extend([reward, done, done])
+        # p = torch.FloatTensor([experience])
+        # print(torch.flatten(p)[4])
+        # experience = torch.FloatTensor([self.normalize(experience)]).to(device)
+        # print(torch.flatten(experience)[4])
+        # out, _, _ = self.model(experience)
+        # print(torch.flatten(out)[4])
+        # out = self.descale(out)
+        # print(torch.flatten(out)[4])
+        # print('\n')
+        print(action)
 
 
     # Sample a give amount of new experiences from the model
@@ -185,29 +186,35 @@ class GenerativeReplay:
             
             outputs = self.descale(self.model.decode(sample_batch)).to("cpu")
 
+
             return (
                 torch.FloatTensor(outputs[:, 0:4]).to(device),
                 torch.FloatTensor(outputs[:, 4]).unsqueeze(1).to(device),
                 torch.FloatTensor(outputs[:, 5:9]).to(device),
-                torch.FloatTensor(outputs[:, -3]).unsqueeze(1).to(device),
-                torch.FloatTensor(outputs[:, -2]).unsqueeze(1).to(device)
+                torch.FloatTensor(outputs[:, -2]).unsqueeze(1).to(device),
+                torch.FloatTensor(outputs[:, -1]).unsqueeze(1).to(device)
             )
 
             
     # Random some from latents
     def get_latent_samples(self, amount):
 
-        res = []
-        ind = np.random.randint(0, len(self.model.latents), size=amount) 
-        for i in ind:
-            res.append(self.model.latents[i])
+        # res = []
+        # ind = np.random.randint(0, len(self.model.latents), size=amount) 
+        # for i in ind:
+        #     res.append(self.model.latents[i])
 
-        z = torch.zeros((amount, LATENT_SIZE))
-        for t in range(len(z)):
-            z[t] = res[t]
-        # print(z)
-        z = z.to(device)
-        return z
+        # z = torch.zeros((amount, LATENT_SIZE))
+        # for t in range(len(z)):
+        #     z[t] = res[t]
+        # z = z.to(device)
+        # # print(z)
+        # return z
+
+        res = torch.rand(amount, LATENT_SIZE)
+        ((res.mul_(2)).sub_(1))
+        res = res.to(device)
+        return res
 
 
 # Variational Autoencoder that mostly I built
@@ -239,6 +246,7 @@ class VAE(nn.Module):
         if len(self.latents) >= self.l_size:
             self.latents = self.latents[int(len(self.latents)/2):]
         res = mu + eps*std
+        (res.div_(20))
         for t in res:
             self.latents.append(t)
         return res
