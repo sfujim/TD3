@@ -14,7 +14,7 @@ INPUT_SIZE = 11
 LAYER_SIZE = 10
 LATENT_SIZE = 4 
 LEARNING_RATE = 0.001
-BUFFER_SIZE = 256
+BUFFER_SIZE = 64
 TRAIN_TO_TEST = 0.9
 
 # Env sizes
@@ -36,6 +36,8 @@ class GenerativeReplay:
         self.buffer = []
         self.training = False
         self.first = True
+        torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile=None)
+
 
     # Add new experiences as they come
     def add(self, state, action, next_state, reward, done):
@@ -65,6 +67,8 @@ class GenerativeReplay:
         global EPOCHS
         self.model.train()
         train_data = self.buffer[:int(len(self.buffer)*TRAIN_TO_TEST)]
+        if EPOCHS == 1:
+            return
 
         for w in range(EPOCHS):
             train_loss = 0
@@ -81,7 +85,7 @@ class GenerativeReplay:
 
                 self.opt.step()
 
-            print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
+            # print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
 
         # Ugly reset EPOCHS
         EPOCHS = 1
@@ -154,26 +158,12 @@ class GenerativeReplay:
 
     # Print some samples in the evaluestion for error checking
     def eval(self, state, action, nstate, reward, done):
+        torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile="short")
 
-        # if not self.training:
-        #     return
 
-        # torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile=None)
+        print(self.sample(1))
 
-        # experience = [s for s in state]
-        # experience.append(action)
-        # experience.extend([s for s in nstate])
-        # experience.extend([reward, done, done])
-        # p = torch.FloatTensor([experience])
-        # print(torch.flatten(p)[4])
-        # experience = torch.FloatTensor([self.normalize(experience)]).to(device)
-        # print(torch.flatten(experience)[4])
-        # out, _, _ = self.model(experience)
-        # print(torch.flatten(out)[4])
-        # out = self.descale(out)
-        # print(torch.flatten(out)[4])
-        # print('\n')
-        print(action)
+        # print(action)
 
 
     # Sample a give amount of new experiences from the model
@@ -198,18 +188,6 @@ class GenerativeReplay:
             
     # Random some from latents
     def get_latent_samples(self, amount):
-
-        # res = []
-        # ind = np.random.randint(0, len(self.model.latents), size=amount) 
-        # for i in ind:
-        #     res.append(self.model.latents[i])
-
-        # z = torch.zeros((amount, LATENT_SIZE))
-        # for t in range(len(z)):
-        #     z[t] = res[t]
-        # z = z.to(device)
-        # # print(z)
-        # return z
 
         res = torch.rand(amount, LATENT_SIZE)
         ((res.mul_(2)).sub_(1))
