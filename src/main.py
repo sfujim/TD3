@@ -11,32 +11,40 @@ import DDPG
 from generative_replay import GenerativeReplay
 from datetime import datetime
 
-
+r_before = 0
 
 # Evaluate the policy with a new env
-def eval_policy(policy, env_name, seed, eval_episodes, replay):
+def eval_policy(policy, env_name, seed, eval_episodes, replay, replay_component):
+	global r_before
 	eval_env = gym.make(env_name)
 	eval_env.seed(42)
 
 	avg_reward = 0.
 	for _ in range(eval_episodes):
 		state, done = eval_env.reset(), False
-		e = True
-		print()
 		while not done:
 			old = state
 			action = policy.select_action(np.array(state))
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
-			if True:
-				replay.eval(old, action, state, reward, done)
-				e = False
+
 
 	avg_reward /= eval_episodes
 
 	print("---------------------------------------")
 	print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
 	print("---------------------------------------")
+
+
+	if replay_component is not None:
+
+		if avg_reward > r_before:
+			replay_component.train()
+			replay_component.test()
+			r_before = avg_reward
+
+
+
 	return avg_reward
 
 
@@ -106,7 +114,7 @@ if __name__ == "__main__":
 	
 
 	# Evaluate untrained policy
-	evaluations = [eval_policy(policy, ENV, SEED, 10, replay_component)]
+	evaluations = [eval_policy(policy, ENV, SEED, 10, replay_component, None)]
 
 	state, done = env.reset(), False
 	episode_reward = 0
@@ -157,5 +165,8 @@ if __name__ == "__main__":
 		# Evaluate episode
 		if (t + 1) % EVAL_FREQ == 0:
 			print(f"Total timesteps: {t}")
-			evaluations.append(eval_policy(policy, ENV, SEED,10, replay_component))
+			if t >= START_TIMESTEPS:
+				evaluations.append(eval_policy(policy, ENV, SEED,20, replay_component, replay_component))
+			else:
+				evaluations.append(eval_policy(policy, ENV, SEED,20, replay_component, None))
 			np.save(f"./results/td3/{FILE_NAME}", evaluations)

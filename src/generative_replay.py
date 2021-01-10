@@ -9,12 +9,12 @@ from torch.autograd import Variable
 
 # Hyper parameters
 BATCH_SIZE = 64
-EPOCHS = 15
+EPOCHS = 20
 INPUT_SIZE = 11
 LAYER_SIZE = 10
-LATENT_SIZE = 4 
+LATENT_SIZE = 3 
 LEARNING_RATE = 0.001
-BUFFER_SIZE = 64
+BUFFER_SIZE = 1e4
 TRAIN_TO_TEST = 0.9
 
 # Env sizes
@@ -33,9 +33,10 @@ class GenerativeReplay:
     def __init__(self):
         self.model = VAE().to(device)
         self.opt = optim.Adam(self.model.parameters(), lr=LEARNING_RATE)
-        self.buffer = []
+        self.buffer = [None for x in range(int(BUFFER_SIZE))]
         self.training = False
         self.first = True
+        self.i = 0
         torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile=None)
 
 
@@ -47,14 +48,12 @@ class GenerativeReplay:
         experience.extend([reward, done])
         experience = self.normalize(experience)
 
-        self.buffer.append(experience)
+        self.buffer[self.i] = experience
+        self.i += 1
 
-        # If there is enough in the buffer, and the main told us to train, we train
-        if len(self.buffer) >= BUFFER_SIZE and self.training:
-            random.shuffle(self.buffer)
-            self.train()
-            self.test()
-            self.buffer = []
+        if self.i >= BUFFER_SIZE:
+            self.i = 0
+
 
 
     def loss_function(self, recon_x, x):
@@ -64,12 +63,8 @@ class GenerativeReplay:
 
     # Train the model with what we have in the buffer and some generated data
     def train(self):
-        global EPOCHS
         self.model.train()
         train_data = self.buffer[:int(len(self.buffer)*TRAIN_TO_TEST)]
-        if EPOCHS == 1:
-            return
-
         for w in range(EPOCHS):
             train_loss = 0
 
@@ -85,10 +80,8 @@ class GenerativeReplay:
 
                 self.opt.step()
 
-            # print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
+            print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
 
-        # Ugly reset EPOCHS
-        EPOCHS = 1
         
 
     # Test the model for stats
@@ -158,10 +151,10 @@ class GenerativeReplay:
 
     # Print some samples in the evaluestion for error checking
     def eval(self, state, action, nstate, reward, done):
-        torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile="short")
+        # torch.set_printoptions(precision=3, sci_mode=False, linewidth=240, profile="short")
+        pass
 
-
-        print(self.sample(1))
+        # print(self.sample(1))
 
         # print(action)
 
