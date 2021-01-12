@@ -35,16 +35,6 @@ def eval_policy(policy, env_name, seed, eval_episodes, replay, replay_component)
 	print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
 	print("---------------------------------------")
 
-
-	if replay_component is not None:
-
-		if avg_reward > r_before:
-			replay_component.train()
-			replay_component.test()
-			r_before = avg_reward
-
-
-
 	return avg_reward
 
 
@@ -56,7 +46,8 @@ if __name__ == "__main__":
 	USE_GENERATIVE = True
 	NO_REPLAY = False
 	ENV = "InvertedPendulum-v2"
-	START_TIMESTEPS = 25e3
+	START_TIMESTEPS = 15e3
+	END = START_TIMESTEPS + 50e3
 	EVAL_FREQ = 5e3
 	MAX_TIMESTEPS = 2e5
 	SEED = 13
@@ -123,8 +114,13 @@ if __name__ == "__main__":
 
 
 	for t in range(int(MAX_TIMESTEPS)):
+
+
 		
 		episode_timesteps += 1
+
+		if t >= END:
+			raise ValueError
 
 		# Select action randomly or according to policy based on the start timesteps
 		if t < START_TIMESTEPS:
@@ -155,6 +151,9 @@ if __name__ == "__main__":
 			# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
 
 			print(f"Total timesteps: {t},  Episode {episode_num} done, lasted {episode_timesteps} timesteps, total reward is {episode_reward}")
+			if t >= START_TIMESTEPS:
+				evaluations.append(episode_reward)
+				np.save(f"./results/td3/{FILE_NAME}", evaluations)
 
 			# Reset environment
 			state, done = env.reset(), False
@@ -163,10 +162,10 @@ if __name__ == "__main__":
 			episode_num += 1 
 
 		# Evaluate episode
-		if (t + 1) % EVAL_FREQ == 0:
-			print(f"Total timesteps: {t}")
-			if t >= START_TIMESTEPS:
-				evaluations.append(eval_policy(policy, ENV, SEED,20, replay_component, replay_component))
-			else:
-				evaluations.append(eval_policy(policy, ENV, SEED,20, replay_component, None))
-			np.save(f"./results/td3/{FILE_NAME}", evaluations)
+		# if (t + 1) % EVAL_FREQ == 0:
+		# 	print(f"Total timesteps: {t}")
+		# 	if t >= START_TIMESTEPS:
+		# 		evaluations.append(eval_policy(policy, ENV, SEED,20, replay_component, replay_component))
+		# 	else:
+		# 		evaluations.append(eval_policy(policy, ENV, SEED,20, replay_component, None))
+		# 	np.save(f"./results/td3/{FILE_NAME}", evaluations)

@@ -14,7 +14,7 @@ INPUT_SIZE = 11
 LAYER_SIZE = 10
 LATENT_SIZE = 3 
 LEARNING_RATE = 0.001
-BUFFER_SIZE = 1e4
+BUFFER_SIZE = BATCH_SIZE
 TRAIN_TO_TEST = 0.9
 
 # Env sizes
@@ -53,6 +53,8 @@ class GenerativeReplay:
 
         if self.i >= BUFFER_SIZE:
             self.i = 0
+            self.train()
+            self.test()
 
 
 
@@ -80,7 +82,7 @@ class GenerativeReplay:
 
                 self.opt.step()
 
-            print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
+            # print(f"Trained the VAE with loss :{(train_loss/len(train_data))*100}")
 
         
 
