@@ -153,7 +153,7 @@ if __name__ == "__main__":
 			print(f"Total timesteps: {t},  Episode {episode_num} done, lasted {episode_timesteps} timesteps, total reward is {episode_reward}")
 			if t >= START_TIMESTEPS:
 				evaluations.append(episode_reward)
-				np.save(f"./results/td3/{FILE_NAME}", evaluations)
+				np.save(f"./results/incoming{FILE_NAME}", evaluations)
 
 			# Reset environment
 			state, done = env.reset(), False

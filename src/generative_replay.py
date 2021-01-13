@@ -16,6 +16,7 @@ LATENT_SIZE = 3
 LEARNING_RATE = 0.001
 BUFFER_SIZE = BATCH_SIZE
 TRAIN_TO_TEST = 0.9
+C = 0.01
 
 # Env sizes
 state_dim = 4
@@ -58,9 +59,10 @@ class GenerativeReplay:
 
 
 
-    def loss_function(self, recon_x, x):
+    def loss_function(self, recon_x, x, mu, sigma):
         BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
-        return BCE
+        KLD = -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
+        return BCE + C*KLD
 
 
     # Train the model with what we have in the buffer and some generated data
@@ -76,7 +78,7 @@ class GenerativeReplay:
                 batch = torch.FloatTensor(train_data[i:i+BATCH_SIZE]).to(device)
                 recons, mu, sigma = self.model(batch)
 
-                loss = self.loss_function(recons, batch)
+                loss = self.loss_function(recons, batch, mu, sigma)
                 loss.backward()
                 train_loss += loss.item()
 
@@ -95,7 +97,7 @@ class GenerativeReplay:
         for i in range(0, len(test_data), BATCH_SIZE):
             batch =  torch.FloatTensor(test_data[i:i+BATCH_SIZE]).to(device)
             recons, mu, sigma = self.model(batch)
-            loss = self.loss_function(recons, batch)
+            loss = self.loss_function(recons, batch, mu, sigma)
             test_loss += loss.item()
 
         print(f"Tested the VAE with loss {(test_loss/len(test_data))*100}") 
@@ -185,7 +187,8 @@ class GenerativeReplay:
     def get_latent_samples(self, amount):
 
         res = torch.rand(amount, LATENT_SIZE)
-        ((res.mul_(2)).sub_(1))
+        ((res.mul_(10)).sub_(5))
+        # TODO change this scaling based on the latent space created dynamically
         res = res.to(device)
         return res
 
@@ -216,12 +219,9 @@ class VAE(nn.Module):
     def reparameterize(self, mu, sigma):
         std = torch.exp(0.5*sigma)
         eps = torch.randn_like(std)
-        if len(self.latents) >= self.l_size:
-            self.latents = self.latents[int(len(self.latents)/2):]
+
         res = mu + eps*std
-        (res.div_(20))
-        for t in res:
-            self.latents.append(t)
+        res = torch.clamp(res, min=-5.0, max=5.0)
         return res
     
     def decode(self, x):

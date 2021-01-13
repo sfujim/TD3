@@ -7,13 +7,14 @@ from scipy.interpolate import make_interp_spline, BSpline
 
 
 # Load data sources
-data = np.load('results/keep/kl/0001-2.npy')
-data2 = np.load('results/keep/kl/001-2.npy')
+data = np.load('results/keep/ER.npy')
 
+data2 = np.load('results/keep/NoER.npy')
+diff = len(data2) - len(data)
 
-data = data[:2600]
+print(data.shape)
 
-data2 = data2[:2600]
+data = np.concatenate((data, [1000 for x in range(diff)]))
 
 
 # Add timesteps
@@ -22,8 +23,8 @@ xi = list(range(len(data)))
 # splp = make_interp_spline(xi, P, k=1)
 # p_smooth = splp(xnew)
 
-plt.plot(xi ,data, label="C = 0.001")
-plt.plot(xi ,data2, label="C = 0.01")
+plt.plot(xi ,data, label="Start delay 15e3")
+plt.plot(xi ,data2, label="Random action")
 
 plt.legend()
 
