@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Implementation of Deep Deterministic Policy Gradients (DDPG)
@@ -12,47 +11,53 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # [Not the implementation used in the TD3 paper]
 
 
+def hidden_init(layer):
+  fan_in = layer.weight.data.size()[0]
+  lim = 1. / np.sqrt(fan_in)
+  return (-lim, lim)
+
 class Actor(nn.Module):
   def __init__(self, state_dim, action_dim, max_action):
     super(Actor, self).__init__()
 
-    self.l1 = nn.Linear(state_dim, 400)
-    self.l2 = nn.Linear(400, 300)
-    self.l3 = nn.Linear(300, action_dim)
-    
-    self.max_action = max_action
-
+    # self.seed = torch.manual_seed(88)
+    self.fc1 = nn.Linear(state_dim, 400)
+    self.fc2 = nn.Linear(400, 300)
+    self.fc3 = nn.Linear(300, action_dim)
   
   def forward(self, state):
-    a = F.relu(self.l1(state))
-    a = F.relu(self.l2(a))
-    return self.max_action * torch.tanh(self.l3(a))
+    x = F.relu(self.fc1(state))
+    x = F.relu(self.fc2(x))
+    return F.torch.tanh(self.fc3(x))
 
 
 class Critic(nn.Module):
   def __init__(self, state_dim, action_dim):
     super(Critic, self).__init__()
 
-    self.l1 = nn.Linear(state_dim, 400)
-    self.l2 = nn.Linear(400 + action_dim, 300)
+    # self.seed = torch.manual_seed(88)
+    self.l1 = nn.Linear(state_dim + action_dim, 400)
+    self.l2 = nn.Linear(400, 300)
     self.l3 = nn.Linear(300, 1)
 
 
   def forward(self, state, action):
-    q = F.relu(self.l1(state))
-    q = F.relu(self.l2(torch.cat([q, action], 1)))
-    return self.l3(q)
+    x = torch.cat([state, action], dim=1)
+    x = F.relu(self.l1(x))
+    x = F.relu(self.l2(x))
+    return self.l3(x)
 
 
 class DDPG(object):
-  def __init__(self, state_dim, action_dim, max_action, discount=0.99, tau=0.001):
+  def __init__(self, state_dim, action_dim, max_action, discount=0.99, tau=0.001,
+               lr_actor=1e-3, lr_critic=1e-3, critic_weight_decay=0.0):
     self.actor = Actor(state_dim, action_dim, max_action).to(device)
     self.actor_target = copy.deepcopy(self.actor)
-    self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
+    self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr_actor)
 
     self.critic = Critic(state_dim, action_dim).to(device)
     self.critic_target = copy.deepcopy(self.critic)
-    self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), weight_decay=1e-2)
+    self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr_critic, weight_decay=critic_weight_decay)
 
     self.discount = discount
     self.tau = tau
@@ -60,6 +65,7 @@ class DDPG(object):
 
   def select_action(self, state):
     state = torch.FloatTensor(state.reshape(1, -1)).to(device)
+    # state = state.unsqueeze(0)
     return self.actor(state).cpu().data.numpy().flatten()
 
 

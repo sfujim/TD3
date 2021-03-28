@@ -6,19 +6,28 @@ import os
 import utils
 import DDPG
 
-env_name = 'Pendulum-v0' # 'BipedalWalker-v3'
+env_name = 'BipedalWalker-v3' # 'Pendulum-v0' 
 seed = 0
+
 start_timesteps = 1e3 #25e3
 eval_freq = 5e3
-max_timesteps = 1e6
+max_timesteps = 5 * 1e6
+mean_reward_greater_than = 230.0
+
 expl_noise = 0.1
-batch_size = 256
+batch_size = 128 # 256
 discount = 0.99
-tau = 0.005
+tau = 1e-3 # 0.005
+
 policy_noise = 0.2
 noise_clip = 0.5
 policy_freq = 2
-save_model = False
+
+lr_actor = 3e-4 # 1e-3
+lr_critic = 3e-4 # 1e-3
+critic_weight_decay = 1e-3 # 1e-2
+
+save_model = True
 load_model = ""
 
 
@@ -62,10 +71,15 @@ if __name__ == "__main__":
   action_dim = env.action_space.shape[0] 
   max_action = float(env.action_space.high[0])
 
-  policy = DDPG.DDPG(state_dim, action_dim, max_action, discount=discount, tau=tau)
+  # import pdb; pdb.set_trace()
+
+  policy = DDPG.DDPG(state_dim, action_dim, max_action, discount=discount,
+                     tau=tau, lr_actor=lr_actor, lr_critic=lr_critic,
+                     critic_weight_decay=critic_weight_decay)
 
 
-  file_name = f"{policy}_{env}_{seed}"
+
+  file_name = f"{policy}_{env_name}_{seed}"
   print("---------------------------------------")
   print(f"Policy: {policy}, Env: {env_name}, Seed: {seed}")
   print("---------------------------------------")
@@ -74,7 +88,7 @@ if __name__ == "__main__":
     policy_file = file_name if load_model == "default" else load_model
     policy.load(f"./models/{policy_file}")
 
-  replay_buffer = utils.ReplayBuffer(state_dim, action_dim)
+  replay_buffer = utils.ReplayBuffer(state_dim, action_dim, max_size=int(1e6))
   
   # Evaluate untrained policy
   evaluations = [eval_policy(policy, env_name, seed)]
@@ -83,9 +97,10 @@ if __name__ == "__main__":
   episode_reward = 0
   episode_timesteps = 0
   episode_num = 0
+  mean_reward = []
 
   for t in range(int(max_timesteps)):
-    
+
     episode_timesteps += 1
 
     # Select action randomly or according to policy
@@ -111,9 +126,11 @@ if __name__ == "__main__":
     if t >= start_timesteps:
       policy.train(replay_buffer, batch_size)
 
-    if done: 
+    if done:
+      mean_reward.append(episode_reward)
+      last_100_eps_reward = np.array(mean_reward[-100:]).mean()
       # +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
-      print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
+      print(f"Total T: {t+1}\tEpisode Num: {episode_num+1}\tEpisode T: {episode_timesteps}\tReward: {episode_reward:.3f}\tLast 100 eps reward: {last_100_eps_reward:.3f}")
       # Reset environment
       state, done = env.reset(), False
       episode_reward = 0
@@ -124,4 +141,8 @@ if __name__ == "__main__":
     if (t + 1) % eval_freq == 0:
       evaluations.append(eval_policy(policy, env_name, seed))
       np.save(f"./results/{file_name}", evaluations)
-      if save_model: policy.save(f"./models/{file_name}")
+      if save_model:
+        if last_100_eps_reward > 200.
+          print('Saving model...')
+          timestamp = int(datetime.datetime.now().timestamp())
+          policy.save(f"./models/{file_name}{timestamp}")
