@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import gym
-import os
+import os, datetime
 
 import utils
 import DDPG
@@ -142,7 +142,7 @@ if __name__ == "__main__":
       evaluations.append(eval_policy(policy, env_name, seed))
       np.save(f"./results/{file_name}", evaluations)
       if save_model:
-        if last_100_eps_reward > 200.
+        if last_100_eps_reward > 250.0:
           print('Saving model...')
           timestamp = int(datetime.datetime.now().timestamp())
           policy.save(f"./models/{file_name}{timestamp}")
