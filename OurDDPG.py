@@ -15,9 +15,9 @@ class Actor(nn.Module):
 	def __init__(self, state_dim, action_dim, max_action):
 		super(Actor, self).__init__()
 
-		self.l1 = nn.Linear(state_dim, 400)
-		self.l2 = nn.Linear(400, 300)
-		self.l3 = nn.Linear(300, action_dim)
+		self.l1 = nn.Linear(state_dim, 256)
+		self.l2 = nn.Linear(256, 256)
+		self.l3 = nn.Linear(256, action_dim)
 		
 		self.max_action = max_action
 
@@ -32,9 +32,9 @@ class Critic(nn.Module):
 	def __init__(self, state_dim, action_dim):
 		super(Critic, self).__init__()
 
-		self.l1 = nn.Linear(state_dim + action_dim, 400)
-		self.l2 = nn.Linear(400, 300)
-		self.l3 = nn.Linear(300, 1)
+		self.l1 = nn.Linear(state_dim + action_dim, 256)
+		self.l2 = nn.Linear(256, 256)
+		self.l3 = nn.Linear(256, 1)
 
 
 	def forward(self, state, action):
@@ -47,11 +47,11 @@ class DDPG(object):
 	def __init__(self, state_dim, action_dim, max_action, discount=0.99, tau=0.005):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
-		self.actor_optimizer = torch.optim.Adam(self.actor.parameters())
+		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
 
 		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
-		self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
+		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=3e-4)
 
 		self.discount = discount
 		self.tau = tau
@@ -62,7 +62,7 @@ class DDPG(object):
 		return self.actor(state).cpu().data.numpy().flatten()
 
 
-	def train(self, replay_buffer, batch_size=100):
+	def train(self, replay_buffer, batch_size=256):
 		# Sample replay buffer 
 		state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
 
