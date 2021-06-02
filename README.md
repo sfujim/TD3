@@ -8,7 +8,7 @@ Networks are trained using [PyTorch 1.2](https://github.com/pytorch/pytorch) and
 ### Usage
 The paper results can be reproduced by running:
 ```
-./experiments.sh
+./run_experiments.sh
 ```
 Experiments on single environments can be run by calling:
 ```
